@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "discord.js": "^14.1.2",
+    "mineflayer": "^4.3.0",
+    "mojangson": "^2.0.2",
+    "prismarine-nbt": "^2.2.1",
+    "prismarine-proxy": "^1.1.4"
+  }
+}
