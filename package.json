@@ -1,9 +1,23 @@
 {
+  "name": "dotstoops",
+  "bin": "index.js",
   "dependencies": {
     "discord.js": "^14.1.2",
+    "minecraft-data": "^3.10.2",
     "mineflayer": "^4.3.0",
     "mojangson": "^2.0.2",
+    "pkg": "^5.8.0",
     "prismarine-nbt": "^2.2.1",
-    "prismarine-proxy": "^1.1.4"
+    "prismarine-proxy": "^1.1.4",
+    "undici": "^5.10.0"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/**/*.js",
+      "node_modules/**/*.json"
+    ]
+  },
+  "devDependencies": {
+    "standard": "^17.0.0"
   }
 }
