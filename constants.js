@@ -56,5 +56,11 @@ module.exports = {
   minutes: 60 * 1000,
   midasCornerCommandConfirm: corner => `{"extra":[{"bold":true,"color":"gray","extra":[{"color":"gold","text":"MIDAS"},{"text":"]"}],"text":"["},{"text":" You will be told in "},{"underlined":true,"color":"aqua","text":"10 minutes"},{"text":" when "},{"bold":true,"extra":[{"color":"green","text":"${corner.toUpperCase()}"},{"text":" has "},{"color":"red","text":"respawned"}],"text":""}],"text":""}`,
   midasWillSpawnInCorner: (corner, inTime) => `{"extra":[{"bold":true,"color":"gray","extra":[{"color":"gold","text":"MIDAS"},{"text":"]"}],"text":"["},{"text":" "},{"bold":true,"extra":[{"color":"green","text":"${corner.toUpperCase()}"},{"text":" will respawn in "},{"underlined":true,"color":"aqua","text":"${inTime}"}],"text":""}],"text":""}`,
-  midasSpawnedInCorner: corner => `{"extra":[{"bold":true,"color":"gray","extra":[{"color":"gold","text":"MIDAS"},{"text":"]"}],"text":"["},{"text":" "},{"bold":true,"extra":[{"color":"green","text":"${corner.toUpperCase()}"},{"text":" has "},{"color":"red","text":"respawned"}],"text":""}],"text":""}`
+  midasSpawnedInCorner: corner => `{"extra":[{"bold":true,"color":"gray","extra":[{"color":"gold","text":"MIDAS"},{"text":"]"}],"text":"["},{"text":" "},{"bold":true,"extra":[{"color":"green","text":"${corner.toUpperCase()}"},{"text":" has "},{"color":"red","text":"respawned"}],"text":""}],"text":""}`,
+  fingers: {
+    ' pinky': 'se',
+    ' middle finger': 'ne',
+    'n index finger': 'nw',
+    ' thumb': 'sw'
+  }
 }

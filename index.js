@@ -11,13 +11,22 @@ const { onceWithCleanup } = require('mineflayer/lib/promise_utils')
 // const { fetch } = require('undici')
 
 const config = {
-  remake_item_lore: false,
+  remake_item_lore: true,
   exec_extender_ah_min_price: true,
   disable_powerball: true,
   disable_items_on_ground: false,
   show_pets_on_cooldown: true,
   exec_extender_trade_price: true,
-  show_full_midas_satchels: true
+  show_full_midas_satchels: true,
+  dotstoops_mode: true,
+  make_openables_different: false,
+  hide_particles: true,
+  midas_corner_reminders: true,
+  exec_reminders: true,
+  midas_reminders: true,
+  cauldron_off_notification: true,
+  haste_pet_off_notification: true,
+  confirm_enter_pit: true
 }
 
 const proxy = new InstantConnectProxy({
@@ -51,6 +60,7 @@ const activeBuffs = {
 const timeouts = {}
 
 let lastMidasCorner = null
+let lastMidasFingerGivenTime = 0
 
 proxy.on('start', () => {
   trade.inTrade = false
@@ -64,43 +74,50 @@ proxy.on('end', () => {
 
 const MIDAS_FINGER_DISCOVERY = /\(\d\/\d\) You found a(.+)\.\.\./
 
-const fingers = {
-  ' pinky': 'se',
-  ' middle finger': 'ne',
-  'n index finger': 'nw',
-  ' thumb': 'sw'
-}
-
 let usedHouseOfCards = false
 
+const warpsInfo = {
+  inWarpMenu: false,
+  hasClickedPit: false,
+  warpItem: null
+}
+
 proxy.on('incoming', async (data, meta, toClient, toServer) => {
-  if (meta.name === 'world_particles') return
+  if (config.hide_particles && meta.name === 'world_particles') return
   if (meta.name === 'chat') {
     const msg = pchat.fromNotch(data.message).toString()
     if (msg.startsWith(constants.CAULDRON_OVER_MESSAGE)) {
       activeBuffs.cauldron = false
-      clientUtils.sendBigTitleAndManyChat(toClient, constants.CAULDRON_OVER_MESSAGE_PLAYER_NOTIFICATION)
+      if (config.cauldron_off_notification) {
+        clientUtils.sendBigTitleAndManyChat(toClient, constants.CAULDRON_OVER_MESSAGE_PLAYER_NOTIFICATION)
+      }
     } else if (msg.startsWith(constants.HASTE_PET_OVER_MESSAGE)) {
       activeBuffs.hastePet = true
-      clientUtils.sendBigTitleAndManyChat(toClient, constants.HASTE_PET_OVER_MESSAGE_PLAYER_NOTIFICATION)
+      if (config.haste_pet_off_notification) {
+        clientUtils.sendBigTitleAndManyChat(toClient, constants.HASTE_PET_OVER_MESSAGE_PLAYER_NOTIFICATION)
+      }
     } else if (msg === 'Use /itemclaim to claim your item(s)!') {
       // TODO: Make this only happen midas
-      runMidasCommand(toClient, lastMidasCorner)
+      if (lastMidasFingerGivenTime - Date.now() > 5000) {
+        runMidasCommand(toClient, lastMidasCorner)
+      }
     } else if (msg === '(!) Welcome to the Executive Mine.') {
       await onEnterExec()
     } else if (msg.endsWith('House of Cards')/* mutated */) {
       // TODO: Make this also change to false
       usedHouseOfCards = true
-    } else if (msg === 'Teleporting you to Badlands: Diamond... (DO NOT MOVE)' && !usedHouseOfCards) {
-      clientUtils.sendBigTitleAndManyChat(toClient, constants.FORGOT_HOUSE_OF_CARDS_NOTIFICATION)
+    } else if (msg === 'Teleporting you to Badlands: Diamond... (DO NOT MOVE)') {
+      if (config.midas_reminders && !usedHouseOfCards) {
+        clientUtils.sendBigTitleAndManyChat(toClient, constants.FORGOT_HOUSE_OF_CARDS_NOTIFICATION)
+      }
+      // TODO: Also check for headhunter merc
     } else if (msg === constants.CAULDRON_ACTIVE_MESSAGE) {
       activeBuffs.cauldron = true
     } else if (constants.HASTE_PET_ACTIVE_REGEX.test(msg)) {
       activeBuffs.hastePet = true
     } else if (MIDAS_FINGER_DISCOVERY.test(msg)) {
       const [, finger] = msg.match(MIDAS_FINGER_DISCOVERY)
-      // console.log(`finger = ${finger} , command = ${fingers[finger]}`)
-      runMidasCommand(toClient, fingers[finger])
+      runMidasCommand(toClient, constants.fingers[finger])
     }
   } else if (meta.name === 'spawn_entity' || meta.name === 'spawn_entity_living') {
     const { type } = data
@@ -116,20 +133,29 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     for (const item of data.items) {
       await handleItem(item)
       if (trade.inTrade && data.windowId !== 0) {
-        trade.tradeData[i++] = item
+        trade.tradeData[i] = item
+      } else if (warpsInfo.inWarpMenu && i === 20 && !warpsInfo.warpItem) {
+        warpsInfo.warpItem = item
       }
+      i++
     }
   } else if (meta.name === 'open_window') {
-    trade.inTrade = /§l([a-zA-Z0-9_]+) +([a-zA-Z0-9_]+)/.test(data.windowTitle) // FIX THIS SHOULDNT SHOW UP DURING /itemclaim OR for brags
-    if (!trade.inTrade && trade.tradeData) {
-      trade.tradeData = null
-    } else if (trade.inTrade && !trade.tradeData) {
-      trade.tradeData = {}
+    if (config.confirm_enter_pit && data.windowTitle === '"§lWarps"') {
+      warpsInfo.inWarpMenu = true
+    } else {
+      trade.inTrade = /§l([a-zA-Z0-9_]+) +([a-zA-Z0-9_]+)/.test(data.windowTitle) // FIX THIS SHOULDNT SHOW UP DURING /itemclaim OR for brags
+      if (!trade.inTrade && trade.tradeData) {
+        trade.tradeData = null
+      } else if (trade.inTrade && !trade.tradeData) {
+        trade.tradeData = {}
+      }
     }
     windowId = data.windowId
   } else if (meta.name === 'close_window') {
     trade.inTrade = false
     trade.tradeData = null
+    warpsInfo.inWarpMenu = false
+    warpsInfo.hasClickedPit = false
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
   }
@@ -137,7 +163,7 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (meta.name === 'world_event' && data.effectId === 2001) return
   toClient.write(meta.name, data)
 
-  if (config.exec_extender_trade_price && (meta.name === 'set_slot' || meta.name === 'window_items')/* && (trade?.tradeData?.theirSideMins??0) > 0 && (trade?.tradeData?.yourSideMoney??0) > 0 */ && trade.inTrade) {
+  if (config.exec_extender_trade_price && (meta.name === 'set_slot' || meta.name === 'window_items') && trade.inTrade) {
     trade.tradeData.theirSideMins = numberOfExecMinsInOppositeSide()
     trade.tradeData.yourSideMoney = numberOfMoneyInYourSide()
     if ((trade?.tradeData?.theirSideMins ?? 0) > 0 && (trade?.tradeData?.yourSideMoney ?? 0) > 0) {
@@ -212,9 +238,50 @@ const ColorProfile = {
 
 const colorize = (text, colors, settings = { bold: false }) => text.split('').map((letter, ix) => `§${colors[ix % colors.length]}${(settings?.bold ?? false) ? '§l' : ''}${letter}`).join('')
 
+const romanHash = {
+  I: 1,
+  V: 5,
+  X: 10,
+  L: 50,
+  C: 100,
+  D: 500,
+  M: 1000
+}
+function romanToInt (s) {
+  let accumulator = 0
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === 'I' && s[i + 1] === 'V') {
+      accumulator += 4
+      i++
+    } else if (s[i] === 'I' && s[i + 1] === 'X') {
+      accumulator += 9
+      i++
+    } else if (s[i] === 'X' && s[i + 1] === 'L') {
+      accumulator += 40
+      i++
+    } else if (s[i] === 'X' && s[i + 1] === 'C') {
+      accumulator += 90
+      i++
+    } else if (s[i] === 'C' && s[i + 1] === 'D') {
+      accumulator += 400
+      i++
+    } else if (s[i] === 'C' && s[i + 1] === 'M') {
+      accumulator += 900
+      i++
+    } else {
+      accumulator += romanHash[s[i]]
+    }
+  }
+  return accumulator
+}
+
 async function handleItem (item) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
+  if (config.make_openables_different) {
+    item.blockId = nbt?._x === 'mysterychest' ? mcdata.blocksByName.diamond_block.id : mcdata.blocksByName.stone.id
+    item.itemDamage = 0
+  }
   const lore = item?.nbtData?.value?.display?.value?.Lore?.value?.value
 
   if (config.exec_extender_ah_min_price) {
@@ -276,9 +343,23 @@ async function handleItem (item) {
       break
     }
 
-    for (let i = 0; i < lore.length; i++) {
-      if (lore[i].includes('XP Mastery')) {
-        lore[i] = lore[i].replace(/(§.)/g, '$1§l')
+    if (config.dotstoops_mode) {
+      for (let i = 0; i < lore.length; i++) {
+        if (lore[i].includes('Cripple')) {
+          if (lore[i].split(' ')[1].length > 1) {
+            lore[i] = lore[i].replace('Cripple', 'dotstoops')
+          } else {
+            lore[i] = lore[i].replace('Cripple', 'dotstoop')
+          }
+        }
+      }
+
+      if (item?.nbtData?.value?.display?.value?.Name?.value?.includes('Cripple')) {
+        const [name, ...lvl] = item?.nbtData?.value?.display?.value?.Name?.value.split(' ')
+        const letters = lvl.join(' ')
+        const levelRomanStr = letters.match(/§b([IV]+)(?: §7\(§f95%§7\))?/)
+        const level = levelRomanStr ? romanToInt(levelRomanStr[1]) : 0
+        item.nbtData.value.display.value.Name.value = name.replace('Cripple', 'dotstoop') + (level > 1 ? 's ' : ' ') + lvl.join(' ')
       }
     }
   }
@@ -306,7 +387,7 @@ async function handleItem (item) {
   }
 
   if (config.show_full_midas_satchels && nbt._x === 'midassatchel' && nbt.__count === 15000) {
-    item.nbtData.value.display.value.Name.value = '§4§lFULL §r' + item.nbtData.value.display.value.Name.value
+    item.nbtData.value.display.value.Name.value = '§c§lFULL §r' + item.nbtData.value.display.value.Name.value
     item.blockId = mcdata.blocksByName.gold_block.id
     item.itemDamage = 0
   }
@@ -413,6 +494,7 @@ function numberOfMoneyInYourSide () {
 }
 
 async function onEnterExec () {
+  if (!config.exec_reminders) return
   await onceWithCleanup(proxy, 'incoming', {
     checkCondition: (data, meta, toClient, toServer) => meta.name === 'window_items'
   })
@@ -446,13 +528,6 @@ async function onEnterExec () {
     .forEach(([, msg]) => clientUtils.sendChat(toClient, msg))
 }
 
-proxy.on('outgoing', (data, meta, toClient, toServer) => {
-  if (meta.name === 'chat') {
-    if (runMidasCommand(toClient, data.message)) return
-  }
-  toServer.write(meta.name, data)
-})
-
 const MIDAS_CORNERS = {
   nw: true,
   ne: true,
@@ -464,18 +539,61 @@ function runMidasCommand (toClient, message) {
   // TODO: Make this show the time until that boss spawns
   if (MIDAS_CORNERS[message?.replace('/', '')]) {
     timeouts.midas = setTimeout(() => {
-      clientUtils.sendBigTitleAndManyChat(toClient, constants.midasSpawnedInCorner(message))
+      if (config.midas_corner_reminders) {
+        clientUtils.sendBigTitleAndManyChat(toClient, constants.midasSpawnedInCorner(message))
+      }
       lastMidasCorner = message
       delete timeouts.midas
     }, (10 * constants.minutes) - (5 * constants.seconds))
 
     timeouts.midasTwoMin = setTimeout(() => {
-      clientUtils.sendBigTitleAndManyChat(toClient, constants.midasWillSpawnInCorner(message, '2 Minutes'))
+      if (config.midas_corner_reminders) {
+        clientUtils.sendBigTitleAndManyChat(toClient, constants.midasWillSpawnInCorner(message, '2 Minutes'))
+      }
       delete timeouts.midas
     }, ((10 * constants.minutes) - (5 * constants.seconds)) - (2 * constants.minutes))
 
-    clientUtils.sendChat(toClient, constants.midasCornerCommandConfirm(message))
+    if (config.midas_corner_reminders) {
+      clientUtils.sendChat(toClient, constants.midasCornerCommandConfirm(message))
+    }
+    lastMidasFingerGivenTime = Date.now()
     return true
   }
   return false
 }
+
+proxy.on('outgoing', (data, meta, toClient, toServer) => {
+  if (meta.name === 'chat') {
+    if (runMidasCommand(toClient, data.message)) return
+    else if (data.message === '/open') {
+      config.make_openables_different = !config.make_openables_different
+      clientUtils.sendChat(toClient, `{"text": "§b§lYou have just toggled /open to: §a§n${config.make_openables_different === true ? 'on' : 'off'}\n§r§b§nRight Click§r §ca block§r§f to have the changes apply."}`)
+      return
+    }
+  }
+
+  if (meta.name === 'window_click') {
+    if (data.slot === 20 && warpsInfo.inWarpMenu && !warpsInfo.hasClickedPit) {
+      warpsInfo.hasClickedPit = true
+      // TODO: Make the item actually say confirm for the second time
+      warpsInfo.warpItem.nbtData.value.display.value.Name.value = '§c§lClick again to confirm your trip to >> Pit <<'
+      toClient.write('set_slot', {
+        windowId,
+        slot: 20,
+        item: warpsInfo.warpItem
+      })
+      toClient.write('set_slot', {
+        windowId: -1,
+        slot: -1,
+        item: {
+          blockId: -1,
+          itemCount: undefined,
+          itemDamage: undefined,
+          nbtData: undefined
+        }
+      })
+      return
+    }
+  }
+  toServer.write(meta.name, data)
+})
