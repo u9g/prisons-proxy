@@ -8,13 +8,13 @@ const clientUtils = require('./client_utilities')
 const pchat = require('prismarine-chat')('1.8.9')
 const { onceWithCleanup } = require('mineflayer/lib/promise_utils')
 
-const { fetch } = require('undici')
+// const { fetch } = require('undici')
 
 const config = {
-  remake_item_lore: true,
+  remake_item_lore: false,
   exec_extender_ah_min_price: true,
   disable_powerball: true,
-  disable_items_on_ground: true,
+  disable_items_on_ground: false,
   show_pets_on_cooldown: true,
   exec_extender_trade_price: true,
   show_full_midas_satchels: true
@@ -50,6 +50,8 @@ const activeBuffs = {
 
 const timeouts = {}
 
+let lastMidasCorner = null
+
 proxy.on('start', () => {
   trade.inTrade = false
   trade.tradeData = null
@@ -59,6 +61,17 @@ proxy.on('end', () => {
   trade.inTrade = false
   trade.tradeData = null
 })
+
+const MIDAS_FINGER_DISCOVERY = /\(\d\/\d\) You found a(.+)\.\.\./
+
+const fingers = {
+  ' pinky': 'se',
+  ' middle finger': 'ne',
+  'n index finger': 'nw',
+  ' thumb': 'sw'
+}
+
+let usedHouseOfCards = false
 
 proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (meta.name === 'world_particles') return
@@ -70,12 +83,24 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     } else if (msg.startsWith(constants.HASTE_PET_OVER_MESSAGE)) {
       activeBuffs.hastePet = true
       clientUtils.sendBigTitleAndManyChat(toClient, constants.HASTE_PET_OVER_MESSAGE_PLAYER_NOTIFICATION)
+    } else if (msg === 'Use /itemclaim to claim your item(s)!') {
+      // TODO: Make this only happen midas
+      runMidasCommand(toClient, lastMidasCorner)
     } else if (msg === '(!) Welcome to the Executive Mine.') {
       await onEnterExec()
+    } else if (msg.endsWith('House of Cards')/* mutated */) {
+      // TODO: Make this also change to false
+      usedHouseOfCards = true
+    } else if (msg === 'Teleporting you to Badlands: Diamond... (DO NOT MOVE)' && !usedHouseOfCards) {
+      clientUtils.sendBigTitleAndManyChat(toClient, constants.FORGOT_HOUSE_OF_CARDS_NOTIFICATION)
     } else if (msg === constants.CAULDRON_ACTIVE_MESSAGE) {
       activeBuffs.cauldron = true
     } else if (constants.HASTE_PET_ACTIVE_REGEX.test(msg)) {
       activeBuffs.hastePet = true
+    } else if (MIDAS_FINGER_DISCOVERY.test(msg)) {
+      const [, finger] = msg.match(MIDAS_FINGER_DISCOVERY)
+      // console.log(`finger = ${finger} , command = ${fingers[finger]}`)
+      runMidasCommand(toClient, fingers[finger])
     }
   } else if (meta.name === 'spawn_entity' || meta.name === 'spawn_entity_living') {
     const { type } = data
@@ -102,9 +127,11 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
       trade.tradeData = {}
     }
     windowId = data.windowId
-  } if (meta.name === 'close_window') {
+  } else if (meta.name === 'close_window') {
     trade.inTrade = false
     trade.tradeData = null
+  } else if (meta.name === 'respawn') {
+    lastMidasCorner = null
   }
 
   if (meta.name === 'world_event' && data.effectId === 2001) return
@@ -285,37 +312,67 @@ async function handleItem (item) {
   }
 
   // avg price on lore
-  if (nbt._x === 'whitescroll') {
-    const resp = await (await fetch('http://localhost/sov/whitescroll')).json()
-    if (resp.ok) {
-      lore.push('')
-      lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last day)`)
-    }
-  } else if (nbt._x === 'holy_whitescroll') {
-    const resp = await (await fetch('http://localhost/sov/holy_whitescroll')).json()
-    if (resp.ok) {
-      lore.push('')
-      lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last day)`)
-    }
-  } else if (nbt._x === 'blackscroll' && nbt.heroic !== 1) {
-    const resp = await (await fetch(`http://localhost/sov/blackscroll/${nbt['joeBlackScroll-chance']}`)).json()
-    if (resp.ok) {
-      lore.push('')
-      lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-    }
-  } else if (nbt._x === 'blackscroll' && nbt.heroic === 1) {
-    const resp = await (await fetch(`http://localhost/sov/heroic_blackscroll/${nbt['joeBlackScroll-chance']}`)).json()
-    if (resp.ok) {
-      lore.push('')
-      lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-    }
-  } else if (nbt._x === 'skin') {
-    const resp = await (await fetch(`http://localhost/sov/skin/${nbt.joe.data.types}`)).json()
-    if (resp.ok) {
-      lore.push('')
-      lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+  if (false) {
+    if (nbt._x === 'whitescroll') {
+      const resp = await (await fetch('http://localhost/sov/whitescroll')).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last day)`)
+      }
+    } else if (nbt._x === 'holy_whitescroll') {
+      const resp = await (await fetch('http://localhost/sov/holy_whitescroll')).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last day)`)
+      }
+    } else if (nbt._x === 'blackscroll' && nbt.heroic !== 1) {
+      const resp = await (await fetch(`http://localhost/sov/blackscroll/${nbt['joeBlackScroll-chance']}`)).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+      }
+    } else if (nbt._x === 'blackscroll' && nbt.heroic === 1) {
+      const resp = await (await fetch(`http://localhost/sov/heroic_blackscroll/${nbt['joeBlackScroll-chance']}`)).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+      }
+    } else if (nbt._x === 'skin') {
+      const resp = await (await fetch(`http://localhost/sov/skin/${nbt.joe.data.types}`)).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+      }
+    } else if (nbt._x === 'booster') {
+      const { 'boosterItem-dur': dur, boosterItem: type, 'boosterItem-boost': mult } = nbt
+      const resp = await (await fetch(`http://localhost/sov/booster/${type}/${mult}/${dur}`)).json()
+      if (resp.ok && (resp.ppm || resp.avgPrice)) {
+        lore.push('')
+        if (resp.ppm) lore.push(`§6§lExpected Price: §r§a§l$${moneyize((resp.ppm * dur).toFixed(2))} §8(based on multiplier, for the last 3 days)`)
+        if (resp.avgPrice) lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for exact item, for the last 3 days)`)
+      }
+    } else if (nbt._x === 'mysterychest') {
+      const resp = await (await fetch(`http://localhost/sov/mystery_chest/${nbt.cosmicData.mysteryChest}`)).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+      }
+    } else if (nbt._x === 'gkitbeacon') {
+      const resp = await (await fetch(`http://localhost/sov/gkit/${nbt['joe-gkit-claim']}`)).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+      }
+    } else if (nbt._x === 'gkitflare') {
+      console.log(`http://localhost/sov/gkit_flare/${nbt['joe-gkit']}/${nbt['joe-gkit-purchased'] === 1}`)
+      const resp = await (await fetch(`http://localhost/sov/gkit_flare/${nbt['joe-gkit']}/${nbt['joe-gkit-purchased'] === 1}`)).json()
+      if (resp.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+      }
     }
   }
+  // TODO: Mask, Pet, Crystal, Crystal Extractor, Slots, Exec Time Extenders, trinkets, synthetics, leash, [heroic] meteor flares, erasers
 }
 
 function colorizeEnchantment (name, level, extraText, isMax) {
@@ -391,21 +448,34 @@ async function onEnterExec () {
 
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
-    const { message } = data
-    if (message in constants.MIDAS_CORNERS) {
-      timeouts.midas = setTimeout(() => {
-        clientUtils.sendBigTitleAndManyChat(toClient, constants.midasSpawnedInCorner(message))
-        delete timeouts.midas
-      }, (10 * constants.minutes) - (10 * constants.seconds))
-
-      timeouts.midasTwoMin = setTimeout(() => {
-        clientUtils.sendBigTitleAndManyChat(toClient, constants.midasWillSpawnInCorner(message, '2 Minutes'))
-        delete timeouts.midas
-      }, ((10 * constants.minutes) - (10 * constants.seconds)) - (2 * constants.minutes))
-
-      clientUtils.sendChat(toClient, constants.midasCornerCommandConfirm(message))
-      return
-    }
+    if (runMidasCommand(toClient, data.message)) return
   }
   toServer.write(meta.name, data)
 })
+
+const MIDAS_CORNERS = {
+  nw: true,
+  ne: true,
+  se: true,
+  sw: true
+}
+
+function runMidasCommand (toClient, message) {
+  // TODO: Make this show the time until that boss spawns
+  if (MIDAS_CORNERS[message?.replace('/', '')]) {
+    timeouts.midas = setTimeout(() => {
+      clientUtils.sendBigTitleAndManyChat(toClient, constants.midasSpawnedInCorner(message))
+      lastMidasCorner = message
+      delete timeouts.midas
+    }, (10 * constants.minutes) - (5 * constants.seconds))
+
+    timeouts.midasTwoMin = setTimeout(() => {
+      clientUtils.sendBigTitleAndManyChat(toClient, constants.midasWillSpawnInCorner(message, '2 Minutes'))
+      delete timeouts.midas
+    }, ((10 * constants.minutes) - (5 * constants.seconds)) - (2 * constants.minutes))
+
+    clientUtils.sendChat(toClient, constants.midasCornerCommandConfirm(message))
+    return true
+  }
+  return false
+}

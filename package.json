@@ -13,8 +13,8 @@
   },
   "pkg": {
     "assets": [
-      "node_modules/**/*.js",
-      "node_modules/**/*.json"
+      "node_modules/minecraft-data/**/*.js",
+      "node_modules/minecraft-packets/**/*.json"
     ]
   },
   "devDependencies": {
