@@ -96,7 +96,7 @@ let usedHouseOfCards = false
 
 const warpsInfo = {
   inWarpMenu: false,
-  hasClickedPit: false,
+  pitClicks: 0,
   warpItem: null
 }
 
@@ -173,9 +173,16 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     trade.inTrade = false
     trade.tradeData = null
     warpsInfo.inWarpMenu = false
-    warpsInfo.hasClickedPit = false
+    warpsInfo.pitClicks = 0
+    warpsInfo.warpItem = null
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
+  }
+
+  if (warpsInfo.inWarpMenu && meta.name === 'set_slot' && data.slot === 20) {
+    data.item = warpsInfo.warpItem
+  } else if (warpsInfo.inWarpMenu && meta.name === 'window_items' && data.windowId === windowId) {
+    data.items[20] = warpsInfo.warpItem
   }
 
   if (meta.name === 'world_event' && data.effectId === 2001) return
@@ -485,6 +492,14 @@ function runMidasCommand (toClient, message) {
   return false
 }
 
+const clicked = {
+  1: 14, // red
+  2: 6, // pink
+  3: 1, // orange
+  4: 4, // yellow
+  5: 5
+}
+
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     if (runMidasCommand(toClient, data.message)) return
@@ -496,10 +511,13 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
   }
 
   if (meta.name === 'window_click') {
-    if (data.slot === 20 && warpsInfo.inWarpMenu && !warpsInfo.hasClickedPit) {
-      warpsInfo.hasClickedPit = true
+    if (data.slot === 20 && warpsInfo.inWarpMenu && (warpsInfo.pitClicks + 1) in clicked) {
+      warpsInfo.pitClicks++
       // TODO: Make the item actually say confirm for the second time
-      warpsInfo.warpItem.nbtData.value.display.value.Name.value = '§c§lClick again to confirm your trip to >> Pit <<'
+      warpsInfo.warpItem.nbtData.value.display.value.Name.value = `§c§lClick ${5 - warpsInfo.pitClicks + 1} more times to go to Pit`
+      warpsInfo.warpItem.blockId = mcdata.blocksByName.stained_glass_pane.id
+      warpsInfo.warpItem.itemDamage = clicked[warpsInfo.pitClicks]
+
       toClient.write('set_slot', {
         windowId,
         slot: 20,
