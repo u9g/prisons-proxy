@@ -4,11 +4,28 @@ const mcdata = require('minecraft-data')('1.8.9')
 const constants = require('./constants')
 const { moneyize } = constants
 const clientUtils = require('./client_utilities')
+const { addPriceInfoToItem } = require('./auction_utilities')
+
+const { Worker } = require('worker_threads')
+
+const cachedFetchs = {}
+const itemFetcherThread = new Worker(require('path').join(__dirname, 'item_fetcher_thread.js')).on('message', (val) => {
+  if (val.type === 'fetch') {
+    cachedFetchs[val.value.url] = val.value.response
+  }
+})
 
 const pchat = require('prismarine-chat')('1.8.9')
 const { onceWithCleanup } = require('mineflayer/lib/promise_utils')
 
-// const { fetch } = require('undici')
+function fetch (url) {
+  if (cachedFetchs[url]) return cachedFetchs[url]
+  itemFetcherThread.postMessage({
+    type: 'fetch',
+    value: { url }
+  })
+  return null
+}
 
 const config = {
   remake_item_lore: true,
@@ -26,7 +43,8 @@ const config = {
   midas_reminders: true,
   cauldron_off_notification: true,
   haste_pet_off_notification: true,
-  confirm_enter_pit: true
+  confirm_enter_pit: true,
+  show_average_price: true
 }
 
 const proxy = new InstantConnectProxy({
@@ -124,14 +142,14 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     if (type === 30 && meta.name === 'spawn_entity_living' && data.metadata.find(b => b.key === 2)?.value === '' && config.disable_powerball) return // powerball
     else if (type === 2 && meta.name === 'spawn_entity' && config.disable_items_on_ground) return // ore drop animation
   } else if (meta.name === 'set_slot' && data.item.nbtData) {
-    await handleItem(data.item)
+    handleItem(data.item)
     if (trade.inTrade) {
       trade.tradeData[data.slot] = data.item
     }
   } else if (meta.name === 'window_items') {
     let i = 0
     for (const item of data.items) {
-      await handleItem(item)
+      handleItem(item)
       if (trade.inTrade && data.windowId !== 0) {
         trade.tradeData[i] = item
       } else if (warpsInfo.inWarpMenu && i === 20 && !warpsInfo.warpItem) {
@@ -238,48 +256,11 @@ const ColorProfile = {
 
 const colorize = (text, colors, settings = { bold: false }) => text.split('').map((letter, ix) => `§${colors[ix % colors.length]}${(settings?.bold ?? false) ? '§l' : ''}${letter}`).join('')
 
-const romanHash = {
-  I: 1,
-  V: 5,
-  X: 10,
-  L: 50,
-  C: 100,
-  D: 500,
-  M: 1000
-}
-function romanToInt (s) {
-  let accumulator = 0
-  for (let i = 0; i < s.length; i++) {
-    if (s[i] === 'I' && s[i + 1] === 'V') {
-      accumulator += 4
-      i++
-    } else if (s[i] === 'I' && s[i + 1] === 'X') {
-      accumulator += 9
-      i++
-    } else if (s[i] === 'X' && s[i + 1] === 'L') {
-      accumulator += 40
-      i++
-    } else if (s[i] === 'X' && s[i + 1] === 'C') {
-      accumulator += 90
-      i++
-    } else if (s[i] === 'C' && s[i + 1] === 'D') {
-      accumulator += 400
-      i++
-    } else if (s[i] === 'C' && s[i + 1] === 'M') {
-      accumulator += 900
-      i++
-    } else {
-      accumulator += romanHash[s[i]]
-    }
-  }
-  return accumulator
-}
-
-async function handleItem (item) {
+function handleItem (item) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
   if (config.make_openables_different) {
-    item.blockId = nbt?._x === 'mysterychest' ? mcdata.blocksByName.diamond_block.id : mcdata.blocksByName.stone.id
+    item.blockId = nbt?.cosmicData?.mysteryChest === 'loot_midas_sadistdepositbox' ? mcdata.blocksByName.emerald_block.id : nbt?._x === 'mysterychest' ? mcdata.blocksByName.diamond_block.id : mcdata.blocksByName.stone.id
     item.itemDamage = 0
   }
   const lore = item?.nbtData?.value?.display?.value?.Lore?.value?.value
@@ -358,7 +339,7 @@ async function handleItem (item) {
         const [name, ...lvl] = item?.nbtData?.value?.display?.value?.Name?.value.split(' ')
         const letters = lvl.join(' ')
         const levelRomanStr = letters.match(/§b([IV]+)(?: §7\(§f95%§7\))?/)
-        const level = levelRomanStr ? romanToInt(levelRomanStr[1]) : 0
+        const level = levelRomanStr ? constants.romanToInt(levelRomanStr[1]) : 0
         item.nbtData.value.display.value.Name.value = name.replace('Cripple', 'dotstoop') + (level > 1 ? 's ' : ' ') + lvl.join(' ')
       }
     }
@@ -393,67 +374,9 @@ async function handleItem (item) {
   }
 
   // avg price on lore
-  if (false) {
-    if (nbt._x === 'whitescroll') {
-      const resp = await (await fetch('http://localhost/sov/whitescroll')).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last day)`)
-      }
-    } else if (nbt._x === 'holy_whitescroll') {
-      const resp = await (await fetch('http://localhost/sov/holy_whitescroll')).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last day)`)
-      }
-    } else if (nbt._x === 'blackscroll' && nbt.heroic !== 1) {
-      const resp = await (await fetch(`http://localhost/sov/blackscroll/${nbt['joeBlackScroll-chance']}`)).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-      }
-    } else if (nbt._x === 'blackscroll' && nbt.heroic === 1) {
-      const resp = await (await fetch(`http://localhost/sov/heroic_blackscroll/${nbt['joeBlackScroll-chance']}`)).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-      }
-    } else if (nbt._x === 'skin') {
-      const resp = await (await fetch(`http://localhost/sov/skin/${nbt.joe.data.types}`)).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-      }
-    } else if (nbt._x === 'booster') {
-      const { 'boosterItem-dur': dur, boosterItem: type, 'boosterItem-boost': mult } = nbt
-      const resp = await (await fetch(`http://localhost/sov/booster/${type}/${mult}/${dur}`)).json()
-      if (resp.ok && (resp.ppm || resp.avgPrice)) {
-        lore.push('')
-        if (resp.ppm) lore.push(`§6§lExpected Price: §r§a§l$${moneyize((resp.ppm * dur).toFixed(2))} §8(based on multiplier, for the last 3 days)`)
-        if (resp.avgPrice) lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for exact item, for the last 3 days)`)
-      }
-    } else if (nbt._x === 'mysterychest') {
-      const resp = await (await fetch(`http://localhost/sov/mystery_chest/${nbt.cosmicData.mysteryChest}`)).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-      }
-    } else if (nbt._x === 'gkitbeacon') {
-      const resp = await (await fetch(`http://localhost/sov/gkit/${nbt['joe-gkit-claim']}`)).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-      }
-    } else if (nbt._x === 'gkitflare') {
-      console.log(`http://localhost/sov/gkit_flare/${nbt['joe-gkit']}/${nbt['joe-gkit-purchased'] === 1}`)
-      const resp = await (await fetch(`http://localhost/sov/gkit_flare/${nbt['joe-gkit']}/${nbt['joe-gkit-purchased'] === 1}`)).json()
-      if (resp.ok) {
-        lore.push('')
-        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
-      }
-    }
+  if (config.show_average_price) {
+    addPriceInfoToItem(nbt, lore, fetch)
   }
-  // TODO: Mask, Pet, Crystal, Crystal Extractor, Slots, Exec Time Extenders, trinkets, synthetics, leash, [heroic] meteor flares, erasers
 }
 
 function colorizeEnchantment (name, level, extraText, isMax) {

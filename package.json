@@ -14,7 +14,8 @@
   "pkg": {
     "assets": [
       "node_modules/minecraft-data/**/*.js",
-      "node_modules/minecraft-packets/**/*.json"
+      "node_modules/minecraft-packets/**/*.json",
+      "item_fetcher_thread.js"
     ]
   },
   "devDependencies": {
