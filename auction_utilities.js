@@ -102,6 +102,6 @@ module.exports = {
       }
     }
 
-    // TODO: Slots, Exec Time Extenders, [heroic] meteor flares, cipher
+    // TODO: Slots, Exec Time Extenders, [heroic] meteor flares, cipher, charge orbs
   }
 }
