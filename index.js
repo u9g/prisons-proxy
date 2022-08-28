@@ -15,6 +15,8 @@ const itemFetcherThread = new Worker(require('path').join(__dirname, 'item_fetch
   }
 })
 
+const debounce = {}
+
 const pchat = require('prismarine-chat')('1.8.9')
 const { onceWithCleanup } = require('mineflayer/lib/promise_utils')
 
@@ -143,9 +145,8 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     else if (type === 2 && meta.name === 'spawn_entity' && config.disable_items_on_ground) return // ore drop animation
   } else if (meta.name === 'set_slot' && data.item.nbtData) {
     handleItem(data.item)
-    if (trade.inTrade) {
-      trade.tradeData[data.slot] = data.item
-    }
+    if (trade.inTrade) trade.tradeData[data.slot] = data.item
+    if (data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient)
   } else if (meta.name === 'window_items') {
     let i = 0
     for (const item of data.items) {
@@ -157,6 +158,7 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
       }
       i++
     }
+    if (windowId === 1) for (let i = 5; i <= 8; i++) onArmorSent(data.items[i], constants.SLOT_TO_ARMOR_NAME[i], toClient)
   } else if (meta.name === 'open_window') {
     if (config.confirm_enter_pit && data.windowTitle === '"§lWarps"') {
       warpsInfo.inWarpMenu = true
@@ -175,6 +177,7 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     warpsInfo.inWarpMenu = false
     warpsInfo.pitClicks = 0
     warpsInfo.warpItem = null
+    windowId = 1
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
   }
@@ -350,6 +353,21 @@ function handleItem (item) {
         item.nbtData.value.display.value.Name.value = name.replace('Cripple', 'dotstoop') + (level > 1 ? 's ' : ' ') + lvl.join(' ')
       }
     }
+
+    // if (config.notify_on_low_energy && nbt?._x === 'gear' && !debounce[nbt._xl.toString()] &&
+    //     nbt.chargable?.givenEnchants && Array.isArray(nbt.chargable?.givenEnchants)) {
+    //   const energy = nbt?.chargable?.energy ?? 0
+
+    //   // if (+nbt.chargable.energy < 100_000_000) {
+    //   //   // antivirus -> 60m
+    //   //   // system reboot -> 25m
+    //   //   debounce[nbt._xl] = true
+    //   //   // clientUtils.sendChat()
+    //   //   setTimeout(() => { delete debounce[nbt._xl] }, 5000)
+    //   // }
+    // } else {
+    //   console.log(nbt?.chargable?.enchants)
+    // }
   }
 
   // console.log(nbt)
@@ -490,6 +508,30 @@ function runMidasCommand (toClient, message) {
     return true
   }
   return false
+}
+
+// won't work inside a chest
+function onArmorSent (item, armorType, toClient) {
+  if (!config.notify_on_low_energy || !item.nbtData) return
+  const nbt = pnbt.simplify(item.nbtData)
+  if (!nbt?._xl || debounce[nbt._xl.toString()]) return
+  if (nbt?._x !== 'gear') return
+  const enchants = nbt.chargable?.givenEnchants ?? nbt.chargable?.enchants
+  if (enchants) {
+    if (armorType === 'Boots' && 'SYSTEMREBOOT' in enchants) {
+      if (enchants.SYSTEMREBOOT === 3 && +nbt.chargable.energy < 25_000_000) {
+        clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
+      } else if (+nbt.chargable.energy <= 100_000_000) {
+        clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
+      }
+    } else if ('ANTIVIRUS' in enchants) {
+      if (+nbt.chargable.energy <= 60_000_000) {
+        clientUtils.sendManyChat(toClient, constants.OUT_OF_ANTIVIRUS_ENERGY(armorType))
+      }
+    }
+  }
+  debounce[nbt._xl.toString()] = true
+  setTimeout(() => { delete debounce[nbt._xl.toString()] }, 2000)
 }
 
 const clicked = {

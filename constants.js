@@ -35,6 +35,12 @@ module.exports = {
   ORE_MINED_AMOUNT_REGEX: /§f[\d,]+ §.§l(?:[a-zA-Z]+) Ore/,
   CC_REQUIRED_REGEX: /§7\(§nCosmicClient.com§7 required\)/,
   CHARGE_ORB_SLOT_LINE: /§f§l§n(\d+)§7\/§f(\d+)§b Charge Orb §7slots unlocked/,
+  SLOT_TO_ARMOR_NAME: {
+    5: 'Helmet',
+    6: 'Chestplate',
+    7: 'Leggings',
+    8: 'Boots'
+  },
   UNHOLIED_MESSAGES: [
     { bold: true, extra: [{ color: 'green', text: 'HELMET' }, { text: ' IS ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' },
     { bold: true, extra: [{ color: 'green', text: 'CHESTPLATE' }, { text: ' IS ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' },
@@ -99,5 +105,8 @@ module.exports = {
       }
     }
     return accumulator
-  }
+  },
+  OUT_OF_ANTIVIRUS_ENERGY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"text":"${piece}"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"Antivirus"}],"text":"Your "}`,
+  OUT_OF_SYSTEMS_ENERGY: '{"color":"red","extra":[{"bold":true,"underlined":true,"text":"Boots"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"System Reboot"}],"text":"Your "}'
+
 }
