@@ -42,11 +42,11 @@ module.exports = {
     8: 'Boots'
   },
   UNHOLIED_MESSAGES: [
-    { bold: true, extra: [{ color: 'green', text: 'HELMET' }, { text: ' IS ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' },
-    { bold: true, extra: [{ color: 'green', text: 'CHESTPLATE' }, { text: ' IS ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' },
-    { bold: true, extra: [{ color: 'green', text: 'LEGGINGS' }, { text: ' ARE ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' },
-    { bold: true, extra: [{ color: 'green', text: 'BOOTS' }, { text: ' ARE ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' }
-  ].map(b => JSON.stringify(b)),
+    "{ bold: true, extra: [{ color: 'green', text: 'HELMET' }, { text: ' IS ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' }",
+    "{ bold: true, extra: [{ color: 'green', text: 'CHESTPLATE' }, { text: ' IS ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' }",
+    "{ bold: true, extra: [{ color: 'green', text: 'LEGGINGS' }, { text: ' ARE ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' }",
+    "{ bold: true, extra: [{ color: 'green', text: 'BOOTS' }, { text: ' ARE ' }, { color: 'red', text: 'UNHOLIED' }], text: 'YOUR ' }"
+  ],
   ourSide: [
     0, 1, 2, 3,
     10, 11, 12, 13,
@@ -106,6 +106,7 @@ module.exports = {
     }
     return accumulator
   },
+  chatRegex: /(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:(?<rank_prefix>\[|<)(?<rank_name>President|Noble|Imperial|Supreme|Majesty|Emperor|Helper\+*)(?<rep_infix>●)?(?: ?(?<rep_number>\d+))?(?<rank_suffix>\]|>) )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)/,
   OUT_OF_ANTIVIRUS_ENERGY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"text":"${piece}"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"Antivirus"}],"text":"Your "}`,
   OUT_OF_SYSTEMS_ENERGY: '{"color":"red","extra":[{"bold":true,"underlined":true,"text":"Boots"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"System Reboot"}],"text":"Your "}'
 

@@ -46,7 +46,9 @@ const config = {
   cauldron_off_notification: true,
   haste_pet_off_notification: true,
   confirm_enter_pit: true,
-  show_average_price: true
+  show_average_price: true,
+  custom_chat: 'sky',
+  notify_on_low_energy: true // 'vanilla' || false
 }
 
 const proxy = new InstantConnectProxy({
@@ -139,6 +141,29 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
       const [, finger] = msg.match(MIDAS_FINGER_DISCOVERY)
       runMidasCommand(toClient, constants.fingers[finger])
     }
+
+    if (config.custom_chat) {
+      if (!constants.chatRegex.test(msg)) {
+        require('fs').promises.appendFile('not_chat.txt', msg.replace(/\n/g, '\\n') + '\n')
+        // return
+      } else if (constants.chatRegex.test(msg)) {
+        const matched = msg.match(constants.chatRegex)
+        require('fs').promises.appendFile('chat.txt', msg.replace(/\n/g, '\\n') + '\n')
+        const extra = JSON.parse(data.message).extra
+        if (config.custom_chat === 'vanilla') {
+          noMoreColor(extra[extra.length - 1])
+          clientUtils.sendChat(toClient, `{"text":"<${matched.groups.username}> ", "extra": [${JSON.stringify(extra[extra.length - 1])}]}`)
+        } else if (config.custom_chat === 'sky') {
+          const rankNum = rankToNumber[matched.groups.rank_name]
+          const color = rankNumToColor[rankNum]
+          const rank = rankNumToRankName[rankNum]
+          clientUtils.sendChat(toClient, `{"text":"", "extra": [{"text":"${matched.groups.gang ? matched.groups.gang + ' ' : ''}§${color}§l${rank}§r§${color}${matched.groups.rep_number ? `●${matched.groups.rep_number}` : ''}${matched.groups.title ? ' §8[§7' + matched.groups.title + '§8]' : ''} §${color}${matched.groups.username}§f: "},${JSON.stringify(extra[extra.length - 1])}]}`)
+        }
+        return
+      // console.log(matched)
+      }
+    }
+    // console.log(msg.replace(/\n/g, '\\n'), 'was matched?', constants.chatRegex.test(msg))
   } else if (meta.name === 'spawn_entity' || meta.name === 'spawn_entity_living') {
     const { type } = data
     if (type === 30 && meta.name === 'spawn_entity_living' && data.metadata.find(b => b.key === 2)?.value === '' && config.disable_powerball) return // powerball
@@ -230,6 +255,13 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     }
   }
 })
+
+function noMoreColor (component) {
+  for (const extras of (component?.extra ?? [])) {
+    extras.color = 'white'
+  }
+  component.color = 'white'
+}
 
 // MOJANGSON PARSER CANT HANDLE ITEMS
 
