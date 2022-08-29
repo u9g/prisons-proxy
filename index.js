@@ -37,7 +37,7 @@ const config = {
   show_pets_on_cooldown: true,
   exec_extender_trade_price: true,
   show_full_midas_satchels: true,
-  dotstoops_mode: true,
+  dotstoops_mode: false,
   make_openables_different: false,
   hide_particles: true,
   midas_corner_reminders: true,
@@ -47,8 +47,9 @@ const config = {
   haste_pet_off_notification: true,
   confirm_enter_pit: true,
   show_average_price: true,
-  custom_chat: 'sky',
-  notify_on_low_energy: true // 'vanilla' || false
+  custom_chat: 'sky', // 'vanilla' || false
+  notify_on_low_energy: true,
+  notify_on_low_durability: true
 }
 
 const proxy = new InstantConnectProxy({
@@ -68,6 +69,7 @@ const proxy = new InstantConnectProxy({
 })
 
 let windowId = 0
+let inWindow = false
 
 const trade = {
   inTrade: false,
@@ -104,10 +106,44 @@ const warpsInfo = {
   warpItem: null
 }
 
+const rankToNumber = {
+  Noble: 1,
+  Imperial: 2,
+  Supreme: 3,
+  Majesty: 4,
+  Emperor: 5,
+  'Emperor+': 5,
+  President: 6,
+  Helper: 7
+}
+
+const rankNumToColor = {
+  1: 'f',
+  2: 'a',
+  3: 'b',
+  4: 'd',
+  5: 'e',
+  6: 'c',
+  7: '5§l'
+}
+
+const rankNumToRankName = {
+  1: 'I',
+  2: 'II',
+  3: 'III',
+  4: 'IV',
+  5: 'V',
+  6: 'VI',
+  7: 'Helper'
+}
+
 proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (config.hide_particles && meta.name === 'world_particles') return
   if (meta.name === 'chat') {
     const msg = pchat.fromNotch(data.message).toString()
+    // console.log('***')
+    // console.log(msg)
+    // console.log('***')
     if (msg.startsWith(constants.CAULDRON_OVER_MESSAGE)) {
       activeBuffs.cauldron = false
       if (config.cauldron_off_notification) {
@@ -183,8 +219,9 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
       }
       i++
     }
-    if (windowId === 1) for (let i = 5; i <= 8; i++) onArmorSent(data.items[i], constants.SLOT_TO_ARMOR_NAME[i], toClient)
+    if (!inWindow) for (let i = 5; i <= 8; i++) onArmorSent(data.items[i], constants.SLOT_TO_ARMOR_NAME[i], toClient)
   } else if (meta.name === 'open_window') {
+    inWindow = true
     if (config.confirm_enter_pit && data.windowTitle === '"§lWarps"') {
       warpsInfo.inWarpMenu = true
     } else {
@@ -202,7 +239,7 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     warpsInfo.inWarpMenu = false
     warpsInfo.pitClicks = 0
     warpsInfo.warpItem = null
-    windowId = 1
+    inWindow = false
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
   }
@@ -544,34 +581,43 @@ function runMidasCommand (toClient, message) {
 
 // won't work inside a chest
 function onArmorSent (item, armorType, toClient) {
-  if (!config.notify_on_low_energy || !item.nbtData) return
+  if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
-  if (!nbt?._xl || debounce[nbt._xl.toString()]) return
-  if (nbt?._x !== 'gear') return
-  const enchants = nbt.chargable?.givenEnchants ?? nbt.chargable?.enchants
-  if (enchants) {
-    if (armorType === 'Boots' && 'SYSTEMREBOOT' in enchants) {
-      if (enchants.SYSTEMREBOOT === 3 && +nbt.chargable.energy < 25_000_000) {
-        clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
-      } else if (+nbt.chargable.energy <= 100_000_000) {
-        clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
+  if (!nbt?._xl) return
+  if (config.notify_on_low_energy && item.nbtData) {
+    if (!debounce[nbt._xl.toString() + 'energy'] && nbt?._x === 'gear') {
+      const enchants = nbt.chargable?.givenEnchants ?? nbt.chargable?.enchants
+      if (enchants) {
+        if (armorType === 'Boots' && 'SYSTEMREBOOT' in enchants) {
+          if (enchants.SYSTEMREBOOT === 3 && +nbt.chargable.energy < 25_000_000) {
+            clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
+          } else if (+nbt.chargable.energy <= 100_000_000) {
+            clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
+          }
+        } else if ('ANTIVIRUS' in enchants) {
+          if (+nbt.chargable.energy <= 60_000_000) {
+            clientUtils.sendManyChat(toClient, constants.OUT_OF_ANTIVIRUS_ENERGY(armorType))
+          }
+        }
       }
-    } else if ('ANTIVIRUS' in enchants) {
-      if (+nbt.chargable.energy <= 60_000_000) {
-        clientUtils.sendManyChat(toClient, constants.OUT_OF_ANTIVIRUS_ENERGY(armorType))
+      debounce[nbt._xl.toString() + 'energy'] = true
+      setTimeout(() => { delete debounce[nbt._xl.toString() + 'energy'] }, 2000)
+    }
+  }
+
+  if (config.notify_on_low_durability) {
+    if (item.blockId !== -1) {
+      const mcdItem = mcdata.items[item.blockId]
+      const { name, maxDurability } = mcdItem
+      if (constants.ARMOR_SUFFIXES.some(suffix => name.endsWith(suffix)) && !debounce[nbt._xl.toString() + 'durability']) {
+        if ((maxDurability - item.itemDamage) / maxDurability < 0.2) {
+          clientUtils.sendBigTitleAndManyChat(toClient, constants.CRITICAL_DURABILITY(armorType))
+        }
+        debounce[nbt._xl.toString() + 'durability'] = true
+        setTimeout(() => { delete debounce[nbt._xl.toString() + 'durability'] }, 2000)
       }
     }
   }
-  debounce[nbt._xl.toString()] = true
-  setTimeout(() => { delete debounce[nbt._xl.toString()] }, 2000)
-}
-
-const clicked = {
-  1: 14, // red
-  2: 6, // pink
-  3: 1, // orange
-  4: 4, // yellow
-  5: 5
 }
 
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
@@ -585,12 +631,12 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
   }
 
   if (meta.name === 'window_click') {
-    if (data.slot === 20 && warpsInfo.inWarpMenu && (warpsInfo.pitClicks + 1) in clicked) {
+    if (data.slot === 20 && warpsInfo.inWarpMenu && (warpsInfo.pitClicks + 1) in constants.pitGlassClicksToGlassColor) {
       warpsInfo.pitClicks++
       // TODO: Make the item actually say confirm for the second time
       warpsInfo.warpItem.nbtData.value.display.value.Name.value = `§c§lClick ${5 - warpsInfo.pitClicks + 1} more times to go to Pit`
       warpsInfo.warpItem.blockId = mcdata.blocksByName.stained_glass_pane.id
-      warpsInfo.warpItem.itemDamage = clicked[warpsInfo.pitClicks]
+      warpsInfo.warpItem.itemDamage = constants.pitGlassClicksToGlassColor[warpsInfo.pitClicks]
 
       toClient.write('set_slot', {
         windowId,
