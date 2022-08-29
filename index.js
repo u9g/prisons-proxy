@@ -5,6 +5,7 @@ const constants = require('./constants')
 const { moneyize } = constants
 const clientUtils = require('./client_utilities')
 const { addPriceInfoToItem } = require('./auction_utilities')
+const { stringify, parse } = require('mojangson')
 
 const { Worker } = require('worker_threads')
 
@@ -49,7 +50,8 @@ const config = {
   show_average_price: true,
   custom_chat: 'sky', // 'vanilla' || false
   notify_on_low_energy: true,
-  notify_on_low_durability: true
+  notify_on_low_durability: true,
+  brag_hover_text: true
 }
 
 const proxy = new InstantConnectProxy({
@@ -322,10 +324,10 @@ function handleChat (msg) {
 
 function remakeItemsInComponent (component) {
   if (component.hoverEvent && component.hoverEvent.action === 'show_item') {
-    const { Count: { value: itemCount }, Damage: { value: itemDamage }, id, tag: { value: nbt } } = require('mojangson').parse(component.hoverEvent.value).value
+    const { Count: { value: itemCount }, Damage: { value: itemDamage }, id, tag: { value: nbt } } = parse(component.hoverEvent.value).value
     const item = { blockId: 1, itemCount, itemDamage, nbtData: { type: 'compound', value: nbt } }
     handleItem(item)
-    const stringified = require('mojangson').stringify({
+    const stringified = stringify({
       type: 'compound',
       value: {
         id: { type: 'string', value: id.value },
@@ -354,7 +356,15 @@ function remakeItemsInComponent (component) {
         }
       }
     })
-    component.hoverEvent.value = stringified
+    if (component.text === '»') {
+      component.hoverEvent.value = stringified
+      component.extra[0].text = nbt.display.value.Name.value
+    }
+  } else if (config.brag_hover_text && component.clickEvent && component.clickEvent.value.startsWith('/brag ')) {
+    component.hoverEvent = {
+      action: 'show_text',
+      value: '§bClick to view ' + component.clickEvent.value.split(' ')[1] + "'s inventory"
+    }
   }
   for (const componentPart of (component.extra ?? [])) {
     remakeItemsInComponent(componentPart)
