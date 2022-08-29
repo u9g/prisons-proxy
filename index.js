@@ -13,6 +13,7 @@ const Openables = require('./modules/Openables')
 const ExecExtenderPerMinutePriceAH = require('./modules/ExecExtenderPerMinutePriceAH')
 const CauldronOver = require('./modules/CauldronOver')
 const HastePetOver = require('./modules/HastePetOver')
+const EnterExecInventoryCheck = require('./modules/EnterExecInventoryCheck')
 
 const { Worker } = require('worker_threads')
 
@@ -24,7 +25,6 @@ const itemFetcherThread = new Worker(require('path').join(__dirname, 'item_fetch
 })
 
 const pchat = require('prismarine-chat')('1.8.9')
-const { onceWithCleanup } = require('mineflayer/lib/promise_utils')
 
 function fetch (url) {
   if (cachedFetchs[url]) return cachedFetchs[url]
@@ -59,7 +59,7 @@ const config = {
   brag_hover_text: true
 }
 
-const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables(), new ExecExtenderPerMinutePriceAH(), new CauldronOver(), new HastePetOver()]
+const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables(), new ExecExtenderPerMinutePriceAH(), new CauldronOver(), new HastePetOver(), new EnterExecInventoryCheck()]
 
 const proxy = new InstantConnectProxy({
   loginHandler: (client) => {
@@ -161,8 +161,6 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
       if (lastMidasFingerGivenTime - Date.now() > 5000) {
         runMidasCommand(toClient, lastMidasCorner)
       }
-    } else if (msg === '(!) Welcome to the Executive Mine.') {
-      await onEnterExec()
     } else if (msg.endsWith('House of Cards')/* mutated */) {
       // TODO: Make this also change to false
       usedHouseOfCards = true
@@ -529,41 +527,6 @@ function numberOfMoneyInYourSide () {
     money += parseInt(item?.nbtData?.value?.money?.value ?? '0')
   }
   return money
-}
-
-async function onEnterExec () {
-  if (!config.exec_reminders) return
-  await onceWithCleanup(proxy, 'incoming', {
-    checkCondition: (data, meta, toClient, toServer) => meta.name === 'window_items'
-  })
-  const [{ items },, toClient] = await onceWithCleanup(proxy, 'incoming', {
-    checkCondition: (data, meta, toClient, toServer) => meta.name === 'window_items'
-  })
-  let hasNaturalXP = false
-  const synthetics = {}
-  for (let i = 5; i <= 8; i++) { // iterate armor
-    if (items[i]?.nbtData?.value?.chargable?.value && items[i]?.nbtData?.value?.chargable?.value?.holyWhiteScroll?.value !== 1) {
-      toClient.write('chat', { position: 0, message: constants.UNHOLIED_MESSAGES[i - 5] })
-    }
-  }
-  for (const item of items) {
-    if (item.blockId !== -1) {
-      const mcdItem = mcdata.items[item.blockId]
-      if (mcdItem.name.endsWith('_pickaxe') && item.nbtData?.value?.chargable?.value?.whiteScroll?.value !== 1) {
-        clientUtils.sendChat(toClient, JSON.stringify({ bold: true, extra: [{ text: item?.nbtData?.value?.display?.value?.Name?.value ?? mcdItem.displayName, extra: [{ color: 'red', text: ' << UNWHITESCROLLED' }] }], text: 'YOU LEFT YOUR PICKAXE CALLED >> ' }))
-      } else if (item?.nbtData?.value?._x?.value === 'miningxp' && !item?.nbtData?.value?.['joe-miningXP-extractor']) {
-        hasNaturalXP = true
-      } else if (item?.nbtData?.value?._x?.value === 'synthetic') {
-        synthetics[item.nbtData.value.__type.value] = true
-      }
-    }
-  }
-
-  if (!hasNaturalXP) clientUtils.sendManyChat(toClient, constants.NO_GODLY_XP_BOTTLE_NOTIFICATION)
-
-  Object.entries(constants.DONT_HAVE_SYNTHETICS_MESSAGES)
-    .filter(([syntheticName]) => !synthetics[syntheticName])
-    .forEach(([, msg]) => clientUtils.sendChat(toClient, msg))
 }
 
 const MIDAS_CORNERS = {
