@@ -626,7 +626,7 @@ function onArmorSent (item, armorType, toClient, toServer) {
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     if (runMidasCommand(toClient, data.message)) return
-    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnFalseToNotSend(data.message, toClient, toServer, config))) return
+    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToNotSend(data.message, toClient, toServer, config))) return
   }
 
   if (meta.name === 'window_click') {
