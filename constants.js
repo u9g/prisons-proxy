@@ -106,7 +106,7 @@ module.exports = {
     }
     return accumulator
   },
-  chatRegex: /(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:(?<rank_prefix>\[|<)(?<rank_name>President|Noble|Imperial|Supreme|Majesty|Emperor|Helper\+*)(?<rep_infix>●)?(?: ?(?<rep_number>\d+))?(?<rank_suffix>\]|>) )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)/,
+  chatRegex: /(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:(?<rank_prefix>\[|<)(?<rank_name>President|Noble|Imperial|Supreme|Majesty|Emperor|Emperor\+|I|II|III|IV|V|V\+|Helper)(?<rep_infix>●)?(?: ?(?<rep_number>\d+))?(?<rank_suffix>\]|>) )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)/,
   OUT_OF_ANTIVIRUS_ENERGY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"text":"${piece}"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"Antivirus"}],"text":"Your "}`,
   OUT_OF_SYSTEMS_ENERGY: '{"color":"red","extra":[{"bold":true,"underlined":true,"text":"Boots"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"System Reboot"}],"text":"Your "}',
   CRITICAL_DURABILITY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"color":"dark_red","text":"${piece}"},{"text":" are on "},{"bold":true,"color":"dark_red","text":"CRITICAL DURABILITY"}],"text":"Your "}`,

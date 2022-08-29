@@ -107,11 +107,17 @@ const warpsInfo = {
 }
 
 const rankToNumber = {
+  I: 1,
   Noble: 1,
+  II: 2,
   Imperial: 2,
+  III: 3,
   Supreme: 3,
+  IV: 4,
   Majesty: 4,
+  V: 5,
   Emperor: 5,
+  'V+': 5,
   'Emperor+': 5,
   President: 6,
   Helper: 7
