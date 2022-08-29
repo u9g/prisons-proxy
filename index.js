@@ -9,6 +9,7 @@ const { stringify, parse } = require('mojangson')
 
 const ArmorLowEnergy = require('./modules/ArmorLowEnergy')
 const ArmorLowDurability = require('./modules/ArmorLowDurability')
+const Openables = require('./modules/Openables')
 
 const { Worker } = require('worker_threads')
 
@@ -55,7 +56,7 @@ const config = {
   brag_hover_text: true
 }
 
-const modules = [new ArmorLowEnergy(), new ArmorLowDurability()]
+const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables()]
 
 const proxy = new InstantConnectProxy({
   loginHandler: (client) => {
@@ -151,7 +152,7 @@ const rankNumToRankName = {
 proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (config.hide_particles && meta.name === 'world_particles') return
   if (meta.name === 'chat') {
-    data.message = handleChat(data.message)
+    data.message = handleChat(data.message, toClient, toServer)
     const msg = pchat.fromNotch(data.message).toString()
     // console.log('***')
     // console.log(msg)
@@ -217,13 +218,13 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     if (type === 30 && meta.name === 'spawn_entity_living' && data.metadata.find(b => b.key === 2)?.value === '' && config.disable_powerball) return // powerball
     else if (type === 2 && meta.name === 'spawn_entity' && config.disable_items_on_ground) return // ore drop animation
   } else if (meta.name === 'set_slot' && data.item.nbtData) {
-    handleItem(data.item)
+    handleItem(data.item, toClient, toServer)
     if (trade.inTrade) trade.tradeData[data.slot] = data.item
     if (!inWindow && data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient, toServer)
   } else if (meta.name === 'window_items') {
     let i = 0
     for (const item of data.items) {
-      handleItem(item)
+      handleItem(item, toClient, toServer)
       if (trade.inTrade && data.windowId !== 0) {
         trade.tradeData[i] = item
       } else if (warpsInfo.inWarpMenu && i === 20 && !warpsInfo.warpItem) {
@@ -316,22 +317,22 @@ function noMoreColor (component) {
 
 // MOJANGSON PARSER CANT HANDLE ITEMS
 
-function handleChat (msg) {
+function handleChat (msg, toClient, toServer) {
   let component
   try {
-    component = JSON.parse(msg)
+    component = JSON.parse(msg, toClient, toServer)
   } catch (e) { return msg }
   for (const componentPart of (component?.extra ?? [])) {
-    remakeItemsInComponent(componentPart)
+    remakeItemsInComponent(componentPart, toClient, toServer)
   }
   return JSON.stringify(component)
 }
 
-function remakeItemsInComponent (component) {
+function remakeItemsInComponent (component, toClient, toServer) {
   if (component.hoverEvent && component.hoverEvent.action === 'show_item') {
     const { Count: { value: itemCount }, Damage: { value: itemDamage }, id, tag: { value: nbt } } = parse(component.hoverEvent.value).value
     const item = { blockId: 1, itemCount, itemDamage, nbtData: { type: 'compound', value: nbt } }
-    handleItem(item)
+    handleItem(item, toClient, toServer)
     const stringified = stringify({
       type: 'compound',
       value: {
@@ -383,13 +384,10 @@ const ColorProfile = {
 
 const colorize = (text, colors, settings = { bold: false }) => text.split('').map((letter, ix) => `§${colors[ix % colors.length]}${(settings?.bold ?? false) ? '§l' : ''}${letter}`).join('')
 
-function handleItem (item) {
+function handleItem (item, toClient, toServer) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
-  if (config.make_openables_different) {
-    item.blockId = nbt?.cosmicData?.mysteryChest === 'loot_midas_sadistdepositbox' ? mcdata.blocksByName.emerald_block.id : nbt?._x === 'mysterychest' ? mcdata.blocksByName.diamond_block.id : mcdata.blocksByName.stone.id
-    item.itemDamage = 0
-  }
+  modules.forEach(it => it.handleItem(item, nbt, toClient, toServer, config))
   const lore = item?.nbtData?.value?.display?.value?.Lore?.value?.value
 
   if (config.exec_extender_ah_min_price) {
@@ -637,11 +635,7 @@ function onArmorSent (item, armorType, toClient, toServer) {
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     if (runMidasCommand(toClient, data.message)) return
-    else if (data.message === '/open') {
-      config.make_openables_different = !config.make_openables_different
-      clientUtils.sendChat(toClient, `{"text": "§b§lYou have just toggled /open to: §a§n${config.make_openables_different === true ? 'on' : 'off'}\n§r§b§nRight Click§r §ca block§r§f to have the changes apply."}`)
-      return
-    }
+    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnFalseToNotSend(data.message, toClient, toServer, config))) return
   }
 
   if (meta.name === 'window_click') {
