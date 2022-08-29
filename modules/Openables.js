@@ -10,7 +10,7 @@ module.exports = class Openables extends Module {
     return true
   }
 
-  handleItem (item, nbt, toClient, toServer, config) {
+  handleItem (item, nbt, lore, toClient, toServer, config) {
     if (!config.make_openables_different) return
     if (nbt?.cosmicData?.mysteryChest === 'loot_midas_sadistdepositbox') {
       item.blockId = mcdata.blocksByName.emerald_block.id

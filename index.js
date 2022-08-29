@@ -10,6 +10,7 @@ const { stringify, parse } = require('mojangson')
 const ArmorLowEnergy = require('./modules/ArmorLowEnergy')
 const ArmorLowDurability = require('./modules/ArmorLowDurability')
 const Openables = require('./modules/Openables')
+const ExecExtenderPerMinutePriceAH = require('./modules/ExecExtenderPerMinutePriceAH')
 
 const { Worker } = require('worker_threads')
 
@@ -56,7 +57,7 @@ const config = {
   brag_hover_text: true
 }
 
-const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables()]
+const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables(), new ExecExtenderPerMinutePriceAH()]
 
 const proxy = new InstantConnectProxy({
   loginHandler: (client) => {
@@ -387,18 +388,8 @@ const colorize = (text, colors, settings = { bold: false }) => text.split('').ma
 function handleItem (item, toClient, toServer) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
-  modules.forEach(it => it.handleItem(item, nbt, toClient, toServer, config))
   const lore = item?.nbtData?.value?.display?.value?.Lore?.value?.value
-
-  if (config.exec_extender_ah_min_price) {
-    const priceLine = nbt?.display?.Lore?.find(b => b.toLowerCase().includes('price (ea): §a$'))
-    if (priceLine && nbt._x === 'exectimeextender') {
-      const ix = nbt.display.Lore.indexOf(priceLine)
-      const price = +priceLine.substring(priceLine.includes('Low ') ? 17 + 4 : 17).replace(/,/g, '')
-      const mins = nbt.exectimeextender / 60
-      lore[ix] = priceLine + ` §8(§a$${moneyize(price / mins)} §8/ min)`
-    }
-  }
+  modules.forEach(it => it.handleItem(item, lore, nbt, toClient, toServer, config))
 
   if (config.remake_item_lore && Array.isArray(lore)) {
     for (let i = 0; i < lore.length; i++) {
