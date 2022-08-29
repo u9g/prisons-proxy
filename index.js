@@ -140,6 +140,7 @@ const rankNumToRankName = {
 proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (config.hide_particles && meta.name === 'world_particles') return
   if (meta.name === 'chat') {
+    data.message = handleChat(data.message)
     const msg = pchat.fromNotch(data.message).toString()
     // console.log('***')
     // console.log(msg)
@@ -302,31 +303,57 @@ function noMoreColor (component) {
 
 // MOJANGSON PARSER CANT HANDLE ITEMS
 
-// function handleChat(msg) {
-//   let component
-//   try {
-//     component = JSON.parse(msg)
-//   } catch (e) { return msg }
-//   for (const componentPart of (component?.extra??[])) {
-//     remakeItemsInComponent(componentPart)
-//   }
-//   return JSON.stringify(component)
-// }
+function handleChat (msg) {
+  let component
+  try {
+    component = JSON.parse(msg)
+  } catch (e) { return msg }
+  for (const componentPart of (component?.extra ?? [])) {
+    remakeItemsInComponent(componentPart)
+  }
+  return JSON.stringify(component)
+}
 
-// function remakeItemsInComponent(component) {
-//   if (component.hoverEvent && component.hoverEvent.action === 'show_item') {
-//     const {Count: count, Damage: damage, id, tag: nbtData} = mojangson.parse(component.hoverEvent.value)
-//     const item = {blockId: 1, itemCount: count, itemDamage: damage, nbtData}
-//     handleItem(item)
-
-//     component.hoverEvent.value.Count.value = item.count
-//     component.hoverEvent.value.itemDamage.value = item.damage
-//     component.hoverEvent.value.tag.value = item.nbtData
-//   }
-//   for (const componentPart of (component.extra??[])) {
-//     remakeItemsInComponent(componentPart)
-//   }
-// }
+function remakeItemsInComponent (component) {
+  if (component.hoverEvent && component.hoverEvent.action === 'show_item') {
+    const { Count: { value: itemCount }, Damage: { value: itemDamage }, id, tag: { value: nbt } } = require('mojangson').parse(component.hoverEvent.value).value
+    const item = { blockId: 1, itemCount, itemDamage, nbtData: { type: 'compound', value: nbt } }
+    handleItem(item)
+    const stringified = require('mojangson').stringify({
+      type: 'compound',
+      value: {
+        id: { type: 'string', value: id.value },
+        Count: { type: 'byte', value: item.itemCount },
+        Damage: { type: 'short', value: item.itemDamage },
+        tag: {
+          type: 'compound',
+          value: {
+            display: {
+              type: 'compound',
+              value: {
+                Name: {
+                  type: 'string',
+                  value: nbt.display.value.Name.value
+                },
+                Lore: {
+                  type: 'list',
+                  value: {
+                    type: 'string',
+                    value: nbt.display.value.Lore.value.value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+    component.hoverEvent.value = stringified
+  }
+  for (const componentPart of (component.extra ?? [])) {
+    remakeItemsInComponent(componentPart)
+  }
+}
 
 const ColorProfile = {
   bright_rainbow: 'c6ea9b5',
