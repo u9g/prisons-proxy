@@ -11,6 +11,8 @@ const ArmorLowEnergy = require('./modules/ArmorLowEnergy')
 const ArmorLowDurability = require('./modules/ArmorLowDurability')
 const Openables = require('./modules/Openables')
 const ExecExtenderPerMinutePriceAH = require('./modules/ExecExtenderPerMinutePriceAH')
+const CauldronOver = require('./modules/CauldronOver')
+const HastePetOver = require('./modules/HastePetOver')
 
 const { Worker } = require('worker_threads')
 
@@ -57,7 +59,7 @@ const config = {
   brag_hover_text: true
 }
 
-const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables(), new ExecExtenderPerMinutePriceAH()]
+const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables(), new ExecExtenderPerMinutePriceAH(), new CauldronOver(), new HastePetOver()]
 
 const proxy = new InstantConnectProxy({
   loginHandler: (client) => {
@@ -81,11 +83,6 @@ let inWindow = false
 const trade = {
   inTrade: false,
   tradeData: null
-}
-
-const activeBuffs = {
-  cauldron: false,
-  hastePet: false
 }
 
 const timeouts = {}
@@ -158,17 +155,8 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     // console.log('***')
     // console.log(msg)
     // console.log('***')
-    if (msg.startsWith(constants.CAULDRON_OVER_MESSAGE)) {
-      activeBuffs.cauldron = false
-      if (config.cauldron_off_notification) {
-        clientUtils.sendBigTitleAndManyChat(toClient, constants.CAULDRON_OVER_MESSAGE_PLAYER_NOTIFICATION)
-      }
-    } else if (msg.startsWith(constants.HASTE_PET_OVER_MESSAGE)) {
-      activeBuffs.hastePet = true
-      if (config.haste_pet_off_notification) {
-        clientUtils.sendBigTitleAndManyChat(toClient, constants.HASTE_PET_OVER_MESSAGE_PLAYER_NOTIFICATION)
-      }
-    } else if (msg === 'Use /itemclaim to claim your item(s)!') {
+    modules.forEach(it => it.messageReceivedFromServer(msg, data, toClient, toServer, config))
+    if (msg === 'Use /itemclaim to claim your item(s)!') {
       // TODO: Make this only happen midas
       if (lastMidasFingerGivenTime - Date.now() > 5000) {
         runMidasCommand(toClient, lastMidasCorner)
@@ -183,10 +171,6 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
         clientUtils.sendBigTitleAndManyChat(toClient, constants.FORGOT_HOUSE_OF_CARDS_NOTIFICATION)
       }
       // TODO: Also check for headhunter merc
-    } else if (msg === constants.CAULDRON_ACTIVE_MESSAGE) {
-      activeBuffs.cauldron = true
-    } else if (constants.HASTE_PET_ACTIVE_REGEX.test(msg)) {
-      activeBuffs.hastePet = true
     } else if (MIDAS_FINGER_DISCOVERY.test(msg)) {
       const [, finger] = msg.match(MIDAS_FINGER_DISCOVERY)
       runMidasCommand(toClient, constants.fingers[finger])
