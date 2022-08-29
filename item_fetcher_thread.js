@@ -6,9 +6,14 @@ port.on('message', async ({ type, ...rest }) => {
     const url = rest.value.url
     if (currentlyFetching[url]) return
     currentlyFetching[url] = true
-    const response = await (await fetch(rest.value.url)).json()
-    port.postMessage({ type: 'fetch', value: { url, response } })
-    if (!response.ok) console.log('!ok: ', url)
-    delete currentlyFetching[url]
+    try {
+      const response = await (await fetch(rest.value.url)).json()
+      port.postMessage({ type: 'fetch', value: { url, response } })
+      if (!response.ok) console.log('!ok: ', url)
+    } catch (e) {
+      console.log(url, e)
+    } finally {
+      delete currentlyFetching[url]
+    }
   }
 })
