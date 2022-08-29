@@ -7,6 +7,9 @@ const clientUtils = require('./client_utilities')
 const { addPriceInfoToItem } = require('./auction_utilities')
 const { stringify, parse } = require('mojangson')
 
+const ArmorLowEnergy = require('./modules/ArmorLowEnergy')
+const ArmorLowDurability = require('./modules/ArmorLowDurability')
+
 const { Worker } = require('worker_threads')
 
 const cachedFetchs = {}
@@ -15,8 +18,6 @@ const itemFetcherThread = new Worker(require('path').join(__dirname, 'item_fetch
     cachedFetchs[val.value.url] = val.value.response
   }
 })
-
-const debounce = {}
 
 const pchat = require('prismarine-chat')('1.8.9')
 const { onceWithCleanup } = require('mineflayer/lib/promise_utils')
@@ -53,6 +54,8 @@ const config = {
   notify_on_low_durability: true,
   brag_hover_text: true
 }
+
+const modules = [new ArmorLowEnergy(), new ArmorLowDurability()]
 
 const proxy = new InstantConnectProxy({
   loginHandler: (client) => {
@@ -216,7 +219,7 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
   } else if (meta.name === 'set_slot' && data.item.nbtData) {
     handleItem(data.item)
     if (trade.inTrade) trade.tradeData[data.slot] = data.item
-    if (data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient)
+    if (!inWindow && data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient, toServer)
   } else if (meta.name === 'window_items') {
     let i = 0
     for (const item of data.items) {
@@ -228,7 +231,9 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
       }
       i++
     }
-    if (!inWindow) for (let i = 5; i <= 8; i++) onArmorSent(data.items[i], constants.SLOT_TO_ARMOR_NAME[i], toClient)
+    if (!inWindow) {
+      for (let i = 5; i <= 8; i++) onArmorSent(data.items[i], constants.SLOT_TO_ARMOR_NAME[i], toClient, toServer)
+    }
   } else if (meta.name === 'open_window') {
     inWindow = true
     if (config.confirm_enter_pit && data.windowTitle === '"§lWarps"') {
@@ -623,44 +628,10 @@ function runMidasCommand (toClient, message) {
 }
 
 // won't work inside a chest
-function onArmorSent (item, armorType, toClient) {
+function onArmorSent (item, armorType, toClient, toServer) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
-  if (!nbt?._xl) return
-  if (config.notify_on_low_energy && item.nbtData) {
-    if (!debounce[nbt._xl.toString() + 'energy'] && nbt?._x === 'gear') {
-      const enchants = nbt.chargable?.givenEnchants ?? nbt.chargable?.enchants
-      if (enchants) {
-        if (armorType === 'Boots' && 'SYSTEMREBOOT' in enchants) {
-          if (enchants.SYSTEMREBOOT === 3 && +nbt.chargable.energy < 25_000_000) {
-            clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
-          } else if (+nbt.chargable.energy <= 100_000_000) {
-            clientUtils.sendManyChat(toClient, constants.OUT_OF_SYSTEMS_ENERGY)
-          }
-        } else if ('ANTIVIRUS' in enchants) {
-          if (+nbt.chargable.energy <= 60_000_000) {
-            clientUtils.sendManyChat(toClient, constants.OUT_OF_ANTIVIRUS_ENERGY(armorType))
-          }
-        }
-      }
-      debounce[nbt._xl.toString() + 'energy'] = true
-      setTimeout(() => { delete debounce[nbt._xl.toString() + 'energy'] }, 2000)
-    }
-  }
-
-  if (config.notify_on_low_durability) {
-    if (item.blockId !== -1) {
-      const mcdItem = mcdata.items[item.blockId]
-      const { name, maxDurability } = mcdItem
-      if (constants.ARMOR_SUFFIXES.some(suffix => name.endsWith(suffix)) && !debounce[nbt._xl.toString() + 'durability']) {
-        if ((maxDurability - item.itemDamage) / maxDurability < 0.2) {
-          clientUtils.sendBigTitleAndManyChat(toClient, constants.CRITICAL_DURABILITY(armorType))
-        }
-        debounce[nbt._xl.toString() + 'durability'] = true
-        setTimeout(() => { delete debounce[nbt._xl.toString() + 'durability'] }, 2000)
-      }
-    }
-  }
+  modules.forEach(it => it.onArmorPieceSent(item, nbt, armorType, toClient, toServer, config))
 }
 
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
@@ -698,6 +669,8 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
       })
       return
     }
+  } else if (meta.name === 'close_window') {
+    inWindow = false
   }
   toServer.write(meta.name, data)
 })
