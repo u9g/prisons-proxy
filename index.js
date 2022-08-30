@@ -145,16 +145,13 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     data.message = handleChat(data.message, toClient, toServer)
     const msg = pchat.fromNotch(data.message).toString()
-    // console.log('***')
-    // console.log(msg)
-    // console.log('***')
     modules.forEach(it => it.messageReceivedFromServer(msg, data, toClient, toServer, config, state))
     if (msg === 'Use /itemclaim to claim your item(s)!') {
       // TODO: Make this only happen midas
       if (lastMidasFingerGivenTime - Date.now() > 5000) {
         runMidasCommand(toClient, lastMidasCorner)
       }
-    } else if (msg.endsWith('House of Cards')/* mutated */) {
+    } else if (msg.endsWith('House of Cards')) {
       // TODO: Make this also change to false
       usedHouseOfCards = true
     } else if (msg === 'Teleporting you to Badlands: Diamond... (DO NOT MOVE)') {
@@ -185,10 +182,8 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
           clientUtils.sendChat(toClient, `{"text":"", "extra": [{"text":"${matched.groups.gang ? matched.groups.gang + ' ' : ''}§${color}§l${rank}§r§${color}${matched.groups.rep_number ? `●${matched.groups.rep_number}` : ''}${matched.groups.title ? ' §8[§7' + matched.groups.title + '§8]' : ''} §${color}${matched.groups.username}§f: "},${JSON.stringify(extra[extra.length - 1])}]}`)
         }
         return
-      // console.log(matched)
       }
     }
-    // console.log(msg.replace(/\n/g, '\\n'), 'was matched?', constants.chatRegex.test(msg))
   } else if (meta.name === 'spawn_entity' || meta.name === 'spawn_entity_living') {
     const { type } = data
     if (type === 30 && meta.name === 'spawn_entity_living' && data.metadata.find(b => b.key === 2)?.value === '' && config.disable_powerball) return // powerball
@@ -230,8 +225,6 @@ function noMoreColor (component) {
   }
   component.color = 'white'
 }
-
-// MOJANGSON PARSER CANT HANDLE ITEMS
 
 function handleChat (msg, toClient, toServer) {
   let component
@@ -374,21 +367,6 @@ function handleItem (item, toClient, toServer) {
         item.nbtData.value.display.value.Name.value = name.replace('Cripple', 'dotstoop') + (level > 1 ? 's ' : ' ') + lvl.join(' ')
       }
     }
-
-    // if (config.notify_on_low_energy && nbt?._x === 'gear' && !debounce[nbt._xl.toString()] &&
-    //     nbt.chargable?.givenEnchants && Array.isArray(nbt.chargable?.givenEnchants)) {
-    //   const energy = nbt?.chargable?.energy ?? 0
-
-    //   // if (+nbt.chargable.energy < 100_000_000) {
-    //   //   // antivirus -> 60m
-    //   //   // system reboot -> 25m
-    //   //   debounce[nbt._xl] = true
-    //   //   // clientUtils.sendChat()
-    //   //   setTimeout(() => { delete debounce[nbt._xl] }, 5000)
-    //   // }
-    // } else {
-    //   console.log(nbt?.chargable?.enchants)
-    // }
   }
 
   // console.log(nbt)
