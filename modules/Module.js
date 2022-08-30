@@ -3,9 +3,12 @@ module.exports = class Module {
   onPlayerSendsChatMessageToServerReturnTrueToNotSend (msg, toClient, toServer, config, state) {}
   handleItem (item, nbt, toClient, toServer, config, state) {}
   messageReceivedFromServer (msgString, packet, toClient, toServer, config, state) {}
+  beforeSendPacketToClient (data, meta, toClient, toServer, config, state) {}
   afterSendPacketToClient (data, meta, toClient, toServer, config, state) {}
   proxyStart (config, state) {}
   proxyEnd (config, state) {}
   setSlot (item, slotNum, toClient, toServer, config, state) {}
   openWindow (windowTitle, toClient, toServer, config, state) {}
+  closeWindow (toClient, toServer, config, state) {}
+  playerSendPacketToServerReturnTrueToCancel (data, meta, toClient, toServer, config, state) {}
 }

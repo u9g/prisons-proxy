@@ -14,6 +14,7 @@ const CauldronOver = require('./modules/CauldronOver')
 const HastePetOver = require('./modules/HastePetOver')
 const EnterExecInventoryCheck = require('./modules/EnterExecInventoryCheck')
 const ExecExtenderTradePrice = require('./modules/ExecExtenderTradePrice')
+const PitConfirmation = require('./modules/PitConfirmation')
 
 const { Worker } = require('worker_threads')
 
@@ -69,7 +70,8 @@ const modules = [
   new CauldronOver(),
   new HastePetOver(),
   new EnterExecInventoryCheck(),
-  new ExecExtenderTradePrice()
+  new ExecExtenderTradePrice(),
+  new PitConfirmation()
 ]
 
 const proxy = new InstantConnectProxy({
@@ -100,12 +102,6 @@ proxy.on('end', () => modules.forEach(it => it.proxyEnd(config, state)))
 const MIDAS_FINGER_DISCOVERY = /\(\d\/\d\) You found a(.+)\.\.\./
 
 let usedHouseOfCards = false
-
-const warpsInfo = {
-  inWarpMenu: false,
-  pitClicks: 0,
-  warpItem: null
-}
 
 const rankToNumber = {
   I: 1,
@@ -206,9 +202,6 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     for (const item of data.items) {
       handleItem(item, toClient, toServer)
       modules.forEach(it => it.setSlot(item, i, toClient, toServer, config, state))
-      if (warpsInfo.inWarpMenu && i === 20 && !warpsInfo.warpItem) {
-        warpsInfo.warpItem = item
-      }
       i++
     }
     if (!state.inWindow) {
@@ -216,27 +209,17 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     }
   } else if (meta.name === 'open_window') {
     state.inWindow = true
-    if (config.confirm_enter_pit && data.windowTitle === '"§lWarps"') {
-      warpsInfo.inWarpMenu = true
-    }
     state.windowId = data.windowId
     modules.forEach(it => it.openWindow(data.windowTitle, toClient, toServer, config, state))
   } else if (meta.name === 'close_window') {
-    warpsInfo.inWarpMenu = false
-    warpsInfo.pitClicks = 0
-    warpsInfo.warpItem = null
+    modules.forEach(it => it.closeWindow(toClient, toServer, config, state))
     state.inWindow = false
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
   }
 
-  if (warpsInfo.inWarpMenu && meta.name === 'set_slot' && data.slot === 20) {
-    data.item = warpsInfo.warpItem
-  } else if (warpsInfo.inWarpMenu && meta.name === 'window_items' && data.windowId === state.windowId) {
-    data.items[20] = warpsInfo.warpItem
-  }
-
   if (meta.name === 'world_event' && data.effectId === 2001) return
+  modules.forEach(it => it.beforeSendPacketToClient(data, meta, toClient, toServer, config, state))
   toClient.write(meta.name, data)
   modules.forEach(it => it.afterSendPacketToClient(data, meta, toClient, toServer, config, state))
 })
@@ -504,35 +487,9 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     if (runMidasCommand(toClient, data.message)) return
     else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToNotSend(data.message, toClient, toServer, config, state))) return
-  }
-
-  if (meta.name === 'window_click') {
-    if (data.slot === 20 && warpsInfo.inWarpMenu && (warpsInfo.pitClicks + 1) in constants.pitGlassClicksToGlassColor) {
-      warpsInfo.pitClicks++
-      // TODO: Make the item actually say confirm for the second time
-      warpsInfo.warpItem.nbtData.value.display.value.Name.value = `§c§lClick ${5 - warpsInfo.pitClicks + 1} more times to go to Pit`
-      warpsInfo.warpItem.blockId = mcdata.blocksByName.stained_glass_pane.id
-      warpsInfo.warpItem.itemDamage = constants.pitGlassClicksToGlassColor[warpsInfo.pitClicks]
-
-      toClient.write('set_slot', {
-        windowId: state.windowId,
-        slot: 20,
-        item: warpsInfo.warpItem
-      })
-      toClient.write('set_slot', {
-        windowId: -1,
-        slot: -1,
-        item: {
-          blockId: -1,
-          itemCount: undefined,
-          itemDamage: undefined,
-          nbtData: undefined
-        }
-      })
-      return
-    }
   } else if (meta.name === 'close_window') {
     state.inWindow = false
   }
+  if (modules.some(it => it.playerSendPacketToServerReturnTrueToCancel(data, meta, toClient, toServer, config, state))) return
   toServer.write(meta.name, data)
 })
