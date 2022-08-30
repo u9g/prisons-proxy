@@ -5,7 +5,7 @@ const clientUtils = require('../client_utilities')
 const mcdata = require('minecraft-data')('1.8.9')
 
 module.exports = class EnterExecInventoryCheck extends Module {
-  messageReceivedFromServer (msgString, packet, toClient, toServer, config) {
+  messageReceivedFromServer (msgString, packet, toClient, toServer, config, state) {
     if (msgString === '(!) Welcome to the Executive Mine.') {
       onEnterExec(toClient, toServer, config)
     }

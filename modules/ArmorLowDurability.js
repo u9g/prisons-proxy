@@ -5,7 +5,7 @@ const mcdata = require('minecraft-data')('1.8.9')
 const debounce = {}
 
 module.exports = class ArmorLowDurability extends Module {
-  onArmorPieceSent (item, nbt, armorType, toClient, toServer, config) {
+  onArmorPieceSent (item, nbt, armorType, toClient, toServer, config, state) {
     if (!config.notify_on_low_durability) return
     if (!nbt?._xl) return
     if (item.blockId === -1) return

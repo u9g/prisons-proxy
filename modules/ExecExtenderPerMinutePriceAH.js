@@ -2,7 +2,7 @@ const Module = require('./Module')
 const { moneyize } = require('../constants')
 
 module.exports = class ExecExtenderPerMinutePriceAH extends Module {
-  handleItem (item, lore, nbt, toClient, toServer, config) {
+  handleItem (item, lore, nbt, toClient, toServer, config, state) {
     if (!config.exec_extender_ah_min_price) return
     const priceLine = nbt?.display?.Lore?.find(b => b.toLowerCase().includes('price (ea): §a$'))
     if (priceLine && nbt._x === 'exectimeextender') {

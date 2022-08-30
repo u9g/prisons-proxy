@@ -5,7 +5,7 @@ const { OUT_OF_SYSTEMS_ENERGY, OUT_OF_ANTIVIRUS_ENERGY } = require('../constants
 const debounce = {}
 
 module.exports = class ArmorLowEnergy extends Module {
-  onArmorPieceSent (item, nbt, armorType, toClient, toServer, config) {
+  onArmorPieceSent (item, nbt, armorType, toClient, toServer, config, state) {
     if (!nbt?._xl) return
     const _xl = nbt._xl.toString()
     if (config.notify_on_low_energy && item.nbtData) {

@@ -2,7 +2,6 @@ const { InstantConnectProxy } = require('prismarine-proxy')
 const pnbt = require('prismarine-nbt')
 const mcdata = require('minecraft-data')('1.8.9')
 const constants = require('./constants')
-const { moneyize } = constants
 const clientUtils = require('./client_utilities')
 const { addPriceInfoToItem } = require('./auction_utilities')
 const { stringify, parse } = require('mojangson')
@@ -14,6 +13,7 @@ const ExecExtenderPerMinutePriceAH = require('./modules/ExecExtenderPerMinutePri
 const CauldronOver = require('./modules/CauldronOver')
 const HastePetOver = require('./modules/HastePetOver')
 const EnterExecInventoryCheck = require('./modules/EnterExecInventoryCheck')
+const ExecExtenderTradePrice = require('./modules/ExecExtenderTradePrice')
 
 const { Worker } = require('worker_threads')
 
@@ -34,6 +34,8 @@ function fetch (url) {
   })
   return null
 }
+
+const state = {}
 
 const config = {
   remake_item_lore: true,
@@ -59,7 +61,16 @@ const config = {
   brag_hover_text: true
 }
 
-const modules = [new ArmorLowEnergy(), new ArmorLowDurability(), new Openables(), new ExecExtenderPerMinutePriceAH(), new CauldronOver(), new HastePetOver(), new EnterExecInventoryCheck()]
+const modules = [
+  new ArmorLowEnergy(),
+  new ArmorLowDurability(),
+  new Openables(),
+  new ExecExtenderPerMinutePriceAH(),
+  new CauldronOver(),
+  new HastePetOver(),
+  new EnterExecInventoryCheck(),
+  new ExecExtenderTradePrice()
+]
 
 const proxy = new InstantConnectProxy({
   loginHandler: (client) => {
@@ -77,28 +88,14 @@ const proxy = new InstantConnectProxy({
   }
 })
 
-let windowId = 0
-let inWindow = false
-
-const trade = {
-  inTrade: false,
-  tradeData: null
-}
-
 const timeouts = {}
 
 let lastMidasCorner = null
 let lastMidasFingerGivenTime = 0
 
-proxy.on('start', () => {
-  trade.inTrade = false
-  trade.tradeData = null
-})
+proxy.on('start', () => modules.forEach(it => it.proxyStart(config, state)))
 
-proxy.on('end', () => {
-  trade.inTrade = false
-  trade.tradeData = null
-})
+proxy.on('end', () => modules.forEach(it => it.proxyEnd(config, state)))
 
 const MIDAS_FINGER_DISCOVERY = /\(\d\/\d\) You found a(.+)\.\.\./
 
@@ -155,7 +152,7 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     // console.log('***')
     // console.log(msg)
     // console.log('***')
-    modules.forEach(it => it.messageReceivedFromServer(msg, data, toClient, toServer, config))
+    modules.forEach(it => it.messageReceivedFromServer(msg, data, toClient, toServer, config, state))
     if (msg === 'Use /itemclaim to claim your item(s)!') {
       // TODO: Make this only happen midas
       if (lastMidasFingerGivenTime - Date.now() > 5000) {
@@ -202,93 +199,46 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     else if (type === 2 && meta.name === 'spawn_entity' && config.disable_items_on_ground) return // ore drop animation
   } else if (meta.name === 'set_slot' && data.item.nbtData) {
     handleItem(data.item, toClient, toServer)
-    if (trade.inTrade) trade.tradeData[data.slot] = data.item
-    if (!inWindow && data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient, toServer)
+    modules.forEach(it => it.setSlot(data.item, data.slot, toClient, toServer, config, state))
+    if (!state.inWindow && data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient, toServer)
   } else if (meta.name === 'window_items') {
     let i = 0
     for (const item of data.items) {
       handleItem(item, toClient, toServer)
-      if (trade.inTrade && data.windowId !== 0) {
-        trade.tradeData[i] = item
-      } else if (warpsInfo.inWarpMenu && i === 20 && !warpsInfo.warpItem) {
+      modules.forEach(it => it.setSlot(item, i, toClient, toServer, config, state))
+      if (warpsInfo.inWarpMenu && i === 20 && !warpsInfo.warpItem) {
         warpsInfo.warpItem = item
       }
       i++
     }
-    if (!inWindow) {
+    if (!state.inWindow) {
       for (let i = 5; i <= 8; i++) onArmorSent(data.items[i], constants.SLOT_TO_ARMOR_NAME[i], toClient, toServer)
     }
   } else if (meta.name === 'open_window') {
-    inWindow = true
+    state.inWindow = true
     if (config.confirm_enter_pit && data.windowTitle === '"§lWarps"') {
       warpsInfo.inWarpMenu = true
-    } else {
-      trade.inTrade = /§l([a-zA-Z0-9_]+) +([a-zA-Z0-9_]+)/.test(data.windowTitle) // FIX THIS SHOULDNT SHOW UP DURING /itemclaim OR for brags
-      if (!trade.inTrade && trade.tradeData) {
-        trade.tradeData = null
-      } else if (trade.inTrade && !trade.tradeData) {
-        trade.tradeData = {}
-      }
     }
-    windowId = data.windowId
+    state.windowId = data.windowId
+    modules.forEach(it => it.openWindow(data.windowTitle, toClient, toServer, config, state))
   } else if (meta.name === 'close_window') {
-    trade.inTrade = false
-    trade.tradeData = null
     warpsInfo.inWarpMenu = false
     warpsInfo.pitClicks = 0
     warpsInfo.warpItem = null
-    inWindow = false
+    state.inWindow = false
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
   }
 
   if (warpsInfo.inWarpMenu && meta.name === 'set_slot' && data.slot === 20) {
     data.item = warpsInfo.warpItem
-  } else if (warpsInfo.inWarpMenu && meta.name === 'window_items' && data.windowId === windowId) {
+  } else if (warpsInfo.inWarpMenu && meta.name === 'window_items' && data.windowId === state.windowId) {
     data.items[20] = warpsInfo.warpItem
   }
 
   if (meta.name === 'world_event' && data.effectId === 2001) return
   toClient.write(meta.name, data)
-
-  if (config.exec_extender_trade_price && (meta.name === 'set_slot' || meta.name === 'window_items') && trade.inTrade) {
-    trade.tradeData.theirSideMins = numberOfExecMinsInOppositeSide()
-    trade.tradeData.yourSideMoney = numberOfMoneyInYourSide()
-    if ((trade?.tradeData?.theirSideMins ?? 0) > 0 && (trade?.tradeData?.yourSideMoney ?? 0) > 0) {
-      toClient.write('set_slot', {
-        windowId,
-        slot: 22,
-        item: {
-          blockId: mcdata.blocksByName.pumpkin.id,
-          itemCount: 1,
-          itemDamage: 0,
-          nbtData: {
-            type: 'compound',
-            name: '',
-            value: {
-              display: {
-                type: 'compound',
-                value: {
-                  Name: { type: 'string', value: `§a$${moneyize(trade.tradeData.yourSideMoney / trade.tradeData.theirSideMins)} §8/ min` },
-                  Lore: {
-                    type: 'list',
-                    value: {
-                      type: 'string',
-                      value:
-            [
-              '',
-              `§a$${moneyize(trade.tradeData.yourSideMoney)} §8to §a${trade.tradeData.theirSideMins} mins`
-            ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      })
-    }
-  }
+  modules.forEach(it => it.afterSendPacketToClient(data, meta, toClient, toServer, config, state))
 })
 
 function noMoreColor (component) {
@@ -371,7 +321,7 @@ function handleItem (item, toClient, toServer) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
   const lore = item?.nbtData?.value?.display?.value?.Lore?.value?.value
-  modules.forEach(it => it.handleItem(item, lore, nbt, toClient, toServer, config))
+  modules.forEach(it => it.handleItem(item, lore, nbt, toClient, toServer, config, state))
 
   if (config.remake_item_lore && Array.isArray(lore)) {
     for (let i = 0; i < lore.length; i++) {
@@ -509,26 +459,6 @@ function colorizeEnchantment (name, level, extraText, isMax) {
   return `${finalEnchName} ${finalLevel} ${finalExtraText}`
 }
 
-function numberOfExecMinsInOppositeSide () {
-  if (Object.keys(trade.tradeData) === 0) return 0
-  let mins = 0
-  for (const slotNum of constants.oppositeSideSlots) {
-    const item = trade.tradeData[slotNum]
-    mins += item?.nbtData?.value?.exectimeextender?.value ?? 0
-  }
-  return mins / 60
-}
-
-function numberOfMoneyInYourSide () {
-  if (Object.keys(trade.tradeData) === 0) return 0
-  let money = 0
-  for (const slotNum of constants.ourSide) {
-    const item = trade.tradeData[slotNum]
-    money += parseInt(item?.nbtData?.value?.money?.value ?? '0')
-  }
-  return money
-}
-
 const MIDAS_CORNERS = {
   nw: true,
   ne: true,
@@ -567,13 +497,13 @@ function runMidasCommand (toClient, message) {
 function onArmorSent (item, armorType, toClient, toServer) {
   if (!item.nbtData) return
   const nbt = pnbt.simplify(item.nbtData)
-  modules.forEach(it => it.onArmorPieceSent(item, nbt, armorType, toClient, toServer, config))
+  modules.forEach(it => it.onArmorPieceSent(item, nbt, armorType, toClient, toServer, config, state))
 }
 
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     if (runMidasCommand(toClient, data.message)) return
-    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToNotSend(data.message, toClient, toServer, config))) return
+    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToNotSend(data.message, toClient, toServer, config, state))) return
   }
 
   if (meta.name === 'window_click') {
@@ -585,7 +515,7 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
       warpsInfo.warpItem.itemDamage = constants.pitGlassClicksToGlassColor[warpsInfo.pitClicks]
 
       toClient.write('set_slot', {
-        windowId,
+        windowId: state.windowId,
         slot: 20,
         item: warpsInfo.warpItem
       })
@@ -602,7 +532,7 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
       return
     }
   } else if (meta.name === 'close_window') {
-    inWindow = false
+    state.inWindow = false
   }
   toServer.write(meta.name, data)
 })

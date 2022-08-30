@@ -5,7 +5,7 @@ const clientUtils = require('../client_utilities')
 // let hastePetActive = false
 
 module.exports = class HastePetOver extends Module {
-  messageReceivedFromServer (msgString, packet, toClient, toServer, config) {
+  messageReceivedFromServer (msgString, packet, toClient, toServer, config, state) {
     if (msgString.startsWith(HASTE_PET_OVER_MESSAGE)) {
       //   hastePetActive = false
 
