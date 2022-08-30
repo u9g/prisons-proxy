@@ -102,6 +102,6 @@ module.exports = {
       }
     }
 
-    // TODO: Slots, Exec Time Extenders, [heroic] meteor flares, cipher, charge orbs, midas satchels
+    // TODO: Slots, Exec Time Extenders, [heroic] meteor flares, cipher, charge orbs, midas satchels, [heroic] cosmic tokens
   }
 }
