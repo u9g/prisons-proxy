@@ -15,6 +15,7 @@ const HastePetOver = require('./modules/HastePetOver')
 const EnterExecInventoryCheck = require('./modules/EnterExecInventoryCheck')
 const ExecExtenderTradePrice = require('./modules/ExecExtenderTradePrice')
 const PitConfirmation = require('./modules/PitConfirmation')
+const ChangeChatFormat = require('./modules/change_chat_format/ChangeChatFormat')
 const pchat = require('prismarine-chat')('1.8.9')
 
 const state = {}
@@ -52,7 +53,8 @@ const modules = [
   new HastePetOver(),
   new EnterExecInventoryCheck(),
   new ExecExtenderTradePrice(),
-  new PitConfirmation()
+  new PitConfirmation(),
+  new ChangeChatFormat()
 ]
 
 const proxy = new InstantConnectProxy({
@@ -84,51 +86,16 @@ const MIDAS_FINGER_DISCOVERY = /\(\d\/\d\) You found a(.+)\.\.\./
 
 let usedHouseOfCards = false
 
-const rankToNumber = {
-  I: 1,
-  Noble: 1,
-  II: 2,
-  Imperial: 2,
-  III: 3,
-  Supreme: 3,
-  IV: 4,
-  Majesty: 4,
-  V: 5,
-  Emperor: 5,
-  'V+': 5,
-  'Emperor+': 5,
-  President: 6,
-  Helper: 7
-}
-
-const rankNumToColor = {
-  1: 'f',
-  2: 'a',
-  3: 'b',
-  4: 'd',
-  5: 'e',
-  6: 'c',
-  7: '5§l'
-}
-
-const rankNumToRankName = {
-  1: 'I',
-  2: 'II',
-  3: 'III',
-  4: 'IV',
-  5: 'V',
-  6: 'VI',
-  7: 'Helper'
-}
-
 proxy.on('incoming', async (data, meta, toClient, toServer) => {
   if (config.hide_particles && meta.name === 'world_particles') return
   if (meta.name === 'chat') {
     data.message = handleChat(data.message, toClient, toServer)
     const msg = pchat.fromNotch(data.message).toString()
-    modules.forEach(it => it.messageReceivedFromServer(msg, data, toClient, toServer, config, state))
+    if (modules.some(it => it.messageReceivedFromServerReturnTrueToCancel(msg, data, toClient, toServer, config, state))) return
     if (msg === 'Use /itemclaim to claim your item(s)!') {
-      // TODO: Make this only happen midas
+      // TODO: Make this only happen during midas
+      // Q: Is this even right? wouldnt this just make midas boxes not be counted since they drop right when the finger does?
+      // A: no its right since were assuming you only get a box after you've done a full rotation
       if (lastMidasFingerGivenTime - Date.now() > 5000) {
         runMidasCommand(toClient, lastMidasCorner)
       }
@@ -143,27 +110,6 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     } else if (MIDAS_FINGER_DISCOVERY.test(msg)) {
       const [, finger] = msg.match(MIDAS_FINGER_DISCOVERY)
       runMidasCommand(toClient, constants.fingers[finger])
-    }
-
-    if (config.custom_chat) {
-      if (!constants.chatRegex.test(msg)) {
-        require('fs').promises.appendFile('not_chat.txt', msg.replace(/\n/g, '\\n') + '\n')
-        // return
-      } else if (constants.chatRegex.test(msg)) {
-        const matched = msg.match(constants.chatRegex)
-        require('fs').promises.appendFile('chat.txt', msg.replace(/\n/g, '\\n') + '\n')
-        const extra = JSON.parse(data.message).extra
-        if (config.custom_chat === 'vanilla') {
-          noMoreColor(extra[extra.length - 1])
-          clientUtils.sendChat(toClient, `{"text":"<${matched.groups.username}> ", "extra": [${JSON.stringify(extra[extra.length - 1])}]}`)
-        } else if (config.custom_chat === 'sky') {
-          const rankNum = rankToNumber[matched.groups.rank_name]
-          const color = rankNumToColor[rankNum]
-          const rank = rankNumToRankName[rankNum]
-          clientUtils.sendChat(toClient, `{"text":"", "extra": [{"text":"${matched.groups.gang ? matched.groups.gang + ' ' : ''}§${color}§l${rank}§r§${color}${matched.groups.rep_number ? `●${matched.groups.rep_number}` : ''}${matched.groups.title ? ' §8[§7' + matched.groups.title + '§8]' : ''} §${color}${matched.groups.username}§f: "},${JSON.stringify(extra[extra.length - 1])}]}`)
-        }
-        return
-      }
     }
   } else if (meta.name === 'spawn_entity' || meta.name === 'spawn_entity_living') {
     const { type } = data
@@ -199,13 +145,6 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
   toClient.write(meta.name, data)
   modules.forEach(it => it.afterSendPacketToClient(data, meta, toClient, toServer, config, state))
 })
-
-function noMoreColor (component) {
-  for (const extras of (component?.extra ?? [])) {
-    extras.color = 'white'
-  }
-  component.color = 'white'
-}
 
 function handleChat (msg, toClient, toServer) {
   let component
@@ -445,7 +384,7 @@ function onArmorSent (item, armorType, toClient, toServer) {
 proxy.on('outgoing', (data, meta, toClient, toServer) => {
   if (meta.name === 'chat') {
     if (runMidasCommand(toClient, data.message)) return
-    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToNotSend(data.message, toClient, toServer, config, state))) return
+    else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToCancel(data.message, toClient, toServer, config, state))) return
   } else if (meta.name === 'close_window') {
     state.inWindow = false
   }

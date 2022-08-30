@@ -5,7 +5,7 @@ const clientUtils = require('../client_utilities')
 // let cauldronActive = false
 
 module.exports = class CauldronOver extends Module {
-  messageReceivedFromServer (msgString, packet, toClient, toServer, config, state) {
+  messageReceivedFromServerReturnTrueToCancel (msgString, packet, toClient, toServer, config, state) {
     if (msgString.startsWith(CAULDRON_OVER_MESSAGE)) {
       //   cauldronActive = false
 

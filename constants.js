@@ -106,7 +106,7 @@ module.exports = {
     }
     return accumulator
   },
-  chatRegex: /(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:(?<rank_prefix>\[|<)(?<rank_name>President|Noble|Imperial|Supreme|Majesty|Emperor|Emperor\+|I|II|III|IV|V|V\+|Helper)(?<rep_infix>●)?(?: ?(?<rep_number>\d+))?(?<rank_suffix>\]|>) )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)/,
+  chatRegex: /(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:\[President\] (?=\[Helper))?(?:(?<rankPrefix>\[|<)(?<rankName>President|Noble|Imperial|Supreme|Majesty|Emperor|Emperor\+|I|II|III|IV|V|V\+|Helper)(?:[● ](?<repNumber>\d+))?(?<rankSuffix>\]|>) )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)/,
   OUT_OF_ANTIVIRUS_ENERGY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"text":"${piece}"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"Antivirus"}],"text":"Your "}`,
   OUT_OF_SYSTEMS_ENERGY: '{"color":"red","extra":[{"bold":true,"underlined":true,"text":"Boots"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"System Reboot"}],"text":"Your "}',
   CRITICAL_DURABILITY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"color":"dark_red","text":"${piece}"},{"text":" are on "},{"bold":true,"color":"dark_red","text":"CRITICAL DURABILITY"}],"text":"Your "}`,
@@ -117,5 +117,41 @@ module.exports = {
     4: 4, // yellow
     5: 5
   },
-  ARMOR_SUFFIXES: ['_helmet', '_chestplate', '_leggings', '_boots']
+  ARMOR_SUFFIXES: ['_helmet', '_chestplate', '_leggings', '_boots'],
+  skyChat: {
+    rankToNumber: {
+      I: 1,
+      Noble: 1,
+      II: 2,
+      Imperial: 2,
+      III: 3,
+      Supreme: 3,
+      IV: 4,
+      Majesty: 4,
+      V: 5,
+      Emperor: 5,
+      'V+': 5,
+      'Emperor+': 5,
+      President: 6,
+      Helper: 7
+    },
+    rankNumToColor: {
+      1: 'f',
+      2: 'a',
+      3: 'b',
+      4: 'd',
+      5: 'e',
+      6: 'c',
+      7: '5§l'
+    },
+    rankNumToRankName: {
+      1: 'I',
+      2: 'II',
+      3: 'III',
+      4: 'IV',
+      5: 'V',
+      6: 'VI',
+      7: 'Helper'
+    }
+  }
 }
