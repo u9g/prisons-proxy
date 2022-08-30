@@ -1,7 +1,24 @@
+const { Worker } = require('worker_threads')
 const { moneyize } = require('./constants')
 
+const itemFetcherThread = new Worker(require('path').join(__dirname, 'item_fetcher_thread.js')).on('message', (val) => {
+  if (val.type === 'fetch') {
+    cachedFetchs[val.value.url] = val.value.response
+  }
+})
+
+const cachedFetchs = {}
+function fetch (url) {
+  if (cachedFetchs[url]) return cachedFetchs[url]
+  itemFetcherThread.postMessage({
+    type: 'fetch',
+    value: { url }
+  })
+  return null
+}
+
 module.exports = {
-  addPriceInfoToItem (nbt, lore, fetch) {
+  addPriceInfoToItem (nbt, lore) {
     function simpleItem (_x, forTheLast) {
       if (nbt._x !== _x) return
       const resp = fetch(`http://localhost/sov/${_x}`)

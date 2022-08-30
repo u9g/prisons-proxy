@@ -15,26 +15,7 @@ const HastePetOver = require('./modules/HastePetOver')
 const EnterExecInventoryCheck = require('./modules/EnterExecInventoryCheck')
 const ExecExtenderTradePrice = require('./modules/ExecExtenderTradePrice')
 const PitConfirmation = require('./modules/PitConfirmation')
-
-const { Worker } = require('worker_threads')
-
-const cachedFetchs = {}
-const itemFetcherThread = new Worker(require('path').join(__dirname, 'item_fetcher_thread.js')).on('message', (val) => {
-  if (val.type === 'fetch') {
-    cachedFetchs[val.value.url] = val.value.response
-  }
-})
-
 const pchat = require('prismarine-chat')('1.8.9')
-
-function fetch (url) {
-  if (cachedFetchs[url]) return cachedFetchs[url]
-  itemFetcherThread.postMessage({
-    type: 'fetch',
-    value: { url }
-  })
-  return null
-}
 
 const state = {}
 
@@ -399,7 +380,7 @@ function handleItem (item, toClient, toServer) {
 
   // avg price on lore
   if (config.show_average_price) {
-    addPriceInfoToItem(nbt, lore, fetch)
+    addPriceInfoToItem(nbt, lore)
   }
 }
 
