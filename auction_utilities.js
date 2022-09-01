@@ -110,9 +110,21 @@ module.exports = {
     } else if (nbt._x === 'crystal') {
       if (nbt._x === 'crystal') {
         const resp = fetch(`http://localhost/sov/crystals/${JSON.stringify(nbt.joe.data.types)}/${nbt.joe.data.successRate}`)
-        if (resp?.ok) {
+        if (resp?.ok && (resp.pricePerPercent || resp.avgPrice)) {
           lore.push('')
-          lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for the last 3 days)`)
+          if (resp.pricePerPercent && resp.avgPrice) {
+            const a = resp.pricePerPercent * nbt.joe.data.successRate
+            const b = resp.avgPrice
+            // https://www.calculatorsoup.com/calculators/algebra/percent-difference-calculator.php
+            // Should this just be if they are not = ?
+            // console.log(nbt.joe.data.types, Math.abs(a - b) / ((a + b) / 2))
+            if (Math.abs(a - b) / ((a + b) / 2) > 0.2) {
+              lore.push(`§6§lExpected Price: §r§a§l$${moneyize((resp.pricePerPercent * nbt.joe.data.successRate))} §8(based on %, for the last 3 days)`)
+            }
+          } else if (resp.pricePerPercent) {
+            lore.push(`§6§lExpected Price: §r§a§l$${moneyize((resp.pricePerPercent * nbt.joe.data.successRate))} §8(based on %, for the last 3 days)`)
+          }
+          if (resp.avgPrice) lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice)} §8(for exact item, for the last 3 days)`)
         }
       }
     } else if (nbt._x === 'pet') {
