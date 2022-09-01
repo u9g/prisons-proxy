@@ -44,6 +44,10 @@ const config = {
   brag_hover_text: true
 }
 
+const DEBUG = {
+  log_inWindow_changes: false
+}
+
 const modules = [
   new ArmorLowEnergy(),
   new ArmorLowDurability(),
@@ -131,10 +135,12 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     }
   } else if (meta.name === 'open_window') {
     state.inWindow = true
+    if (DEBUG.log_inWindow_changes) console.log('(server > open_window) state.inWindow = true')
     state.windowId = data.windowId
     modules.forEach(it => it.openWindow(data.windowTitle, toClient, toServer, config, state))
   } else if (meta.name === 'close_window') {
     modules.forEach(it => it.closeWindow(toClient, toServer, config, state))
+    if (DEBUG.log_inWindow_changes) console.log('(server > close_window) state.inWindow = false')
     state.inWindow = false
   } else if (meta.name === 'respawn') {
     lastMidasCorner = null
@@ -387,6 +393,7 @@ proxy.on('outgoing', (data, meta, toClient, toServer) => {
     else if (modules.some(it => it.onPlayerSendsChatMessageToServerReturnTrueToCancel(data.message, toClient, toServer, config, state))) return
   } else if (meta.name === 'close_window') {
     state.inWindow = false
+    if (DEBUG.log_inWindow_changes) console.log('(client > close_window) state.inWindow = false')
   }
   if (modules.some(it => it.playerSendPacketToServerReturnTrueToCancel(data, meta, toClient, toServer, config, state))) return
   toServer.write(meta.name, data)
