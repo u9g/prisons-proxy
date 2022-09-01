@@ -1,7 +1,7 @@
 const ChatFormatter = require('./ChatFormatter')
 
 module.exports = class VanillaChatFormatter extends ChatFormatter {
-  formatChat (originalMsgString, extra, { prestige, gang, rankPrefix, rankName, repNumber, rankSuffix, username, title, message }) {
+  formatChat (originalMsgString, extra, { prestige, gang, rankPrefix, rankName, repNumber, rankSuffix, username, title, message, realRankIfStaff }) {
     noMoreColor(extra[extra.length - 1])
     return `{"text":"<${username}> ", "extra": [${JSON.stringify(extra[extra.length - 1])}]}`
   }

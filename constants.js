@@ -114,7 +114,7 @@ module.exports = {
     }
     return accumulator
   },
-  chatRegex: /(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:\[President\] (?=\[Helper))?(?:(?<rankPrefix>\[|<)(?<rankName>President|Noble|Imperial|Supreme|Majesty|Emperor|Emperor\+|I|II|III|IV|V|V\+|Helper)(?:[● ](?<repNumber>\d+))?(?<rankSuffix>\]|>) )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)/,
+  chatRegex: /^(?:(?<prestige><[IV]+>) )?(?:(?<gang>\**[a-zA-Z]+) )?(?:[?:\[<](?<realRankIfStaff>(?:President|Noble|Imperial|Supreme|Majesty|Emperor|Emperor|I|II|III|IV|V|V|Helper)\+?)[?:\]>] (?=\[Helper))?(?:[?:\[<](?<rankName>(?:President|Noble|Imperial|Supreme|Majesty|Emperor|Emperor|I|II|III|IV|V|V|Helper|Trainee)\+?)(?:[● ](?<repNumber>\d+))?[?:\]>] )(?<username>[~a-zA-Z0-9_]+)(?: (?:\[(?<title>(?:.+))\]))?: (?<message>.+)$/,
   OUT_OF_ANTIVIRUS_ENERGY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"text":"${piece}"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"Antivirus"}],"text":"Your "}`,
   OUT_OF_SYSTEMS_ENERGY: '{"color":"red","extra":[{"bold":true,"underlined":true,"text":"Boots"},{"text":" are low on "},{"bold":true,"color":"aqua","text":"Energy"},{"text":" for "},{"bold":true,"color":"dark_aqua","text":"System Reboot"}],"text":"Your "}',
   CRITICAL_DURABILITY: piece => `{"color":"red","extra":[{"bold":true,"underlined":true,"color":"dark_red","text":"${piece}"},{"text":" are on "},{"bold":true,"color":"dark_red","text":"CRITICAL DURABILITY"}],"text":"Your "}`,
@@ -128,6 +128,7 @@ module.exports = {
   ARMOR_SUFFIXES: ['_helmet', '_chestplate', '_leggings', '_boots'],
   skyChat: {
     rankToNumber: {
+      Trainee: 0,
       I: 1,
       Noble: 1,
       II: 2,
@@ -141,18 +142,22 @@ module.exports = {
       'V+': 5,
       'Emperor+': 5,
       President: 6,
-      Helper: 7
+      Helper: 7,
+      Admin: 8
     },
     rankNumToColor: {
+      0: '7',
       1: 'f',
       2: 'a',
       3: 'b',
       4: 'd',
       5: 'e',
       6: 'c',
-      7: '5§l'
+      7: '5',
+      8: 'c'
     },
     rankNumToRankName: {
+      0: '',
       1: 'I',
       2: 'II',
       3: 'III',
