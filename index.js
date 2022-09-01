@@ -120,10 +120,14 @@ proxy.on('incoming', async (data, meta, toClient, toServer) => {
     if (type === 30 && meta.name === 'spawn_entity_living' && data.metadata.find(b => b.key === 2)?.value === '' && config.disable_powerball) return // powerball
     else if (type === 2 && meta.name === 'spawn_entity' && config.disable_items_on_ground) return // ore drop animation
   } else if (meta.name === 'set_slot' && data.item.nbtData) {
+    // this shouldn't do any harm, but fixes us firing events after the chest has been closed
+    if (!state.inWindow && data.windowId !== 0) return
     handleItem(data.item, toClient, toServer)
     modules.forEach(it => it.setSlot(data.item, data.slot, toClient, toServer, config, state))
     if (!state.inWindow && data.slot >= 5 && data.slot <= 8) onArmorSent(data.item, constants.SLOT_TO_ARMOR_NAME[data.slot], toClient, toServer)
   } else if (meta.name === 'window_items') {
+    // this shouldn't do any harm, but fixes us firing events after the chest has been closed
+    if (!state.inWindow && data.windowId !== 0) return
     let i = 0
     for (const item of data.items) {
       handleItem(item, toClient, toServer)
