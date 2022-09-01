@@ -101,6 +101,12 @@ module.exports = {
         if (resp.pricePerPercent) lore.push(`§6§lExpected Price: §r§a§l$${moneyize((resp.pricePerPercent * nbt.joe.data.successRate).toFixed(2))} §8(based on %, for the last 3 days)`)
         if (resp.avgPrice) lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.avgPrice.toFixed(2))} §8(for exact item, for the last 3 days)`)
       }
+    } else if (nbt._x === 'miningxp' && nbt['joe-miningXP'] === 5) {
+      const resp = fetch('http://localhost/sov/miningxp/5')
+      if (resp?.ok) {
+        lore.push('')
+        lore.push(`§6§lAverage Price: §r§a§l$${moneyize(resp.bilPrice.toFixed(2))} §8/ §a§l1B xp §8(for the last 3 days)`)
+      }
     } else if (nbt._x === 'crystal') {
       if (nbt._x === 'crystal') {
         const resp = fetch(`http://localhost/sov/crystals/${JSON.stringify(nbt.joe.data.types)}/${nbt.joe.data.successRate}`)
