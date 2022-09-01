@@ -3,14 +3,14 @@ const clientUtils = require('../client_utilities')
 const mcdata = require('minecraft-data')('1.8.9')
 
 module.exports = class Openables extends Module {
-  onPlayerSendsChatMessageToServerReturnTrueToNotSend (msg, toClient, toServer, config, state) {
+  onPlayerSendsChatMessageToServerReturnTrueToCancel (msg, toClient, toServer, config, state) {
     if (msg !== '/open') return false
     config.make_openables_different = !config.make_openables_different
     clientUtils.sendChat(toClient, `{"text": "§b§lYou have just toggled /open to: §a§n${config.make_openables_different === true ? 'on' : 'off'}\n§r§b§nRight Click§r §ca block§r§f to have the changes apply."}`)
     return true
   }
 
-  handleItem (item, nbt, lore, toClient, toServer, config, state) {
+  handleItem (item, lore, nbt, toClient, toServer, config, state) {
     if (!config.make_openables_different) return
     if (nbt?.cosmicData?.mysteryChest === 'loot_midas_sadistdepositbox') {
       item.blockId = mcdata.blocksByName.emerald_block.id
