@@ -14,6 +14,8 @@ const romanHash = {
   M: 1000
 }
 
+const internalMoneyize = (v, sizeOfSuffix, suffix) => (+(v / sizeOfSuffix).toFixed(2) === +(v / sizeOfSuffix).toFixed(0) ? (v / sizeOfSuffix).toFixed(0) : (v / sizeOfSuffix).toFixed(2)) + suffix
+
 module.exports = {
   HASTE_PET_ACTIVE_REGEX: /\(!\) Haste Pet: you now have a (\d+)% Mining Speed Booster with (.+) remaining\./,
   CAULDRON_ACTIVE_MESSAGE: "Sets your current highest unlocked tier of ore's /skill booster to 200% for 10 minutes.",
@@ -65,7 +67,13 @@ module.exports = {
   ],
   one,
   moneyize (v) {
-    if (v >= one.billion) { return (v / one.billion).toFixed(0) + 'b' } else if (v >= one.million) { return (v / one.million).toFixed(0) + 'm' } else if (v >= one.thousand) { return (v / one.thousand).toFixed(0) + 'k' }
+    if (v >= one.billion) {
+      return internalMoneyize(v, one.billion, 'b')
+    } else if (v >= one.million) {
+      return internalMoneyize(v, one.million, 'm')
+    } else if (v >= one.thousand) {
+      return internalMoneyize(v, one.thousand, 'k')
+    }
     return v
   },
   seconds: 1000,
