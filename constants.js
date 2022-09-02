@@ -166,5 +166,6 @@ module.exports = {
       6: 'VI',
       7: 'Helper'
     }
-  }
+  },
+  BAH_OVER_IN_30S: '{"extra":[{"bold":true,"color":"green","text":"BAH"},{"text":" is ending in "},{"color":"red","extra":[{"bold":true,"text":"30"},{"text":" seconds"}],"text":""}],"text":""}'
 }

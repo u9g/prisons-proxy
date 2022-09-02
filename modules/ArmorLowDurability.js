@@ -13,7 +13,7 @@ module.exports = class ArmorLowDurability extends Module {
     const { name, maxDurability } = mcdItem
     const _xl = nbt._xl.toString()
     if (ARMOR_SUFFIXES.some(suffix => name.endsWith(suffix)) && !debounce[_xl]) {
-      if ((maxDurability - item.itemDamage) / maxDurability < 0.9) {
+      if ((maxDurability - item.itemDamage) / maxDurability < 0.1) {
         clientUtils.sendBigTitleAndManyChat(toClient, CRITICAL_DURABILITY(armorType))
       }
       debounce[_xl] = true

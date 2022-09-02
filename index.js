@@ -9,13 +9,15 @@ const { stringify, parse } = require('mojangson')
 const ArmorLowEnergy = require('./modules/ArmorLowEnergy')
 const ArmorLowDurability = require('./modules/ArmorLowDurability')
 const Openables = require('./modules/Openables')
-const ExecExtenderPerMinutePriceAH = require('./modules/ExecExtenderPerMinutePriceAH')
 const CauldronOver = require('./modules/CauldronOver')
 const HastePetOver = require('./modules/HastePetOver')
 const EnterExecInventoryCheck = require('./modules/EnterExecInventoryCheck')
 const ExecExtenderTradePrice = require('./modules/ExecExtenderTradePrice')
 const PitConfirmation = require('./modules/PitConfirmation')
 const ChangeChatFormat = require('./modules/change_chat_format/ChangeChatFormat')
+const BAHReminderBeforeOver = require('./modules/BAHReminderBeforeOver')
+const ExecExtenderPerMinutePriceAH = require('./modules/price_per_unit_ah/ExecExtenderPerMinutePriceAH')
+const EnchantPagePerPercentPriceAH = require('./modules/price_per_unit_ah/EnchantPagePerPercentPriceAH')
 const pchat = require('prismarine-chat')('1.8.9')
 
 const state = {}
@@ -37,12 +39,15 @@ const config = {
   cauldron_off_notification: true,
   haste_pet_off_notification: true,
   confirm_enter_pit: true,
-  show_average_price: true,
+  show_average_price: false,
   custom_chat: 'sky', // 'vanilla' || false
   notify_on_low_energy: true,
   notify_on_low_durability: true,
-  brag_hover_text: true
+  brag_hover_text: true,
+  bah_reminder: true
 }
+
+console.log('it started')
 
 const DEBUG = {
   log_inWindow_changes: false
@@ -58,7 +63,9 @@ const modules = [
   new EnterExecInventoryCheck(),
   new ExecExtenderTradePrice(),
   new PitConfirmation(),
-  new ChangeChatFormat()
+  new ChangeChatFormat(),
+  new BAHReminderBeforeOver(),
+  new EnchantPagePerPercentPriceAH()
 ]
 
 const proxy = new InstantConnectProxy({
