@@ -4,9 +4,11 @@
   "dependencies": {
     "discord.js": "^14.1.2",
     "minecraft-data": "^3.10.2",
+    "minecraft-protocol": "^1.36.1",
     "mineflayer": "^4.3.0",
     "mojangson": "^2.0.2",
     "pkg": "^5.8.0",
+    "prismarine-chat": "^1.6.1",
     "prismarine-nbt": "^2.2.1",
     "prismarine-proxy": "^1.1.4",
     "undici": "^5.10.0"
@@ -19,6 +21,17 @@
     ]
   },
   "devDependencies": {
-    "standard": "^17.0.0"
+    "@typescript-eslint/eslint-plugin": "^5.36.1",
+    "@typescript-eslint/parser": "^5.36.1",
+    "eslint": "^8.23.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-config-standard": "^17.0.0",
+    "eslint-config-standard-with-typescript": "^22.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-n": "^15.2.5",
+    "eslint-plugin-promise": "^6.0.1",
+    "prettier": "^2.7.1",
+    "standard": "^17.0.0",
+    "typescript": "^4.8.2"
   }
 }
